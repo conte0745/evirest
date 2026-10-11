@@ -1,0 +1,25 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ
+.vscode/
+.idea/
+*.swp
+
+# Node
+node_modules/
+npm-debug.log*
+
+# 配布物
+dist/
+*.zip
+*.crx
+*.pem
+
+# 環境・秘密情報
+.env
+.env.*
+
+# pnpm install で node_modules から生成する同梱ライブラリ
+vendor/

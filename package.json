@@ -1,0 +1,16 @@
+{
+  "name": "evirest",
+  "version": "1.1.0",
+  "description": "HTTP/REST APIを手軽に送信・検証できるAPIテスター（Chrome拡張機能）",
+  "private": true,
+  "packageManager": "pnpm@12.5.1",
+  "scripts": {
+    "postinstall": "node scripts/vendor.mjs",
+    "vendor": "node scripts/vendor.mjs",
+    "check": "node --check app.js && node --check background.js && node -e \"JSON.parse(require('fs').readFileSync('manifest.json','utf8'))\"",
+    "zip": "pnpm vendor && pnpm check && mkdir -p dist && V=$(node -p \"require('./manifest.json').version\") && rm -f dist/evirest-$V.zip && zip -r -X dist/evirest-$V.zip manifest.json background.js app.html app.css app.js icons vendor -x '*.DS_Store' && echo dist/evirest-$V.zip"
+  },
+  "devDependencies": {
+    "write-excel-file": "4.1.1"
+  }
+}

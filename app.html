@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>EviREST</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <aside id="side">
+    <div class="brand">EviREST</div>
+    <nav class="tabs" data-group="side">
+      <button data-tab="saved" class="on">保存済み</button>
+      <button data-tab="history">履歴</button>
+      <button data-tab="evidence">エビデンス</button>
+    </nav>
+    <div id="side-saved" class="side-pane"></div>
+    <div id="side-history" class="side-pane" hidden></div>
+    <div id="side-evidence" class="side-pane" hidden></div>
+    <div class="side-foot">
+      <button id="exportBtn">エクスポート</button>
+      <button id="importBtn">インポート</button>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+    </div>
+  </aside>
+
+  <main>
+    <section id="request">
+      <div id="reqName" class="req-name"></div>
+      <div class="line">
+        <select id="method">
+          <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option>
+          <option>DELETE</option><option>HEAD</option><option>OPTIONS</option>
+        </select>
+        <div class="urlbox">
+          <button id="base" class="base" hidden></button>
+          <input id="url" type="text" spellcheck="false">
+        </div>
+        <button id="send" class="primary" title="Ctrl / ⌘ + Enter">送信</button>
+        <button id="save">保存</button>
+        <button id="newReq">新規</button>
+        <button id="curl" title="cURLコマンドとしてコピー">cURL</button>
+      </div>
+
+      <nav class="tabs" data-group="req">
+        <button data-tab="params" class="on">クエリ</button>
+        <button data-tab="headers">ヘッダー</button>
+        <button data-tab="body">ボディ</button>
+        <button data-tab="auth">認証</button>
+        <button data-tab="asserts">アサーション</button>
+      </nav>
+      <div id="req-params" class="pane"></div>
+      <div id="req-headers" class="pane" hidden></div>
+      <div id="req-body" class="pane" hidden>
+        <div class="row">
+          <label><input type="radio" name="bodyType" value="none"> なし</label>
+          <label><input type="radio" name="bodyType" value="json"> JSON</label>
+          <label><input type="radio" name="bodyType" value="text"> テキスト</label>
+          <label><input type="radio" name="bodyType" value="form"> フォーム (urlencoded)</label>
+          <button id="fmtJson" class="small">JSON整形</button>
+        </div>
+        <textarea id="bodyText" spellcheck="false" placeholder='{"key": "value"}'></textarea>
+        <div id="bodyForm"></div>
+      </div>
+      <div id="req-auth" class="pane" hidden>
+        <div class="row">
+          <label class="field narrow"><span>方式</span>
+            <select id="authType">
+              <option value="none">なし</option>
+              <option value="basic">Basic</option>
+              <option value="bearer">Bearer トークン</option>
+            </select>
+          </label>
+        </div>
+        <div id="authBasic" class="row" hidden>
+          <label class="field"><span>ユーザー名</span><input id="authUser" type="text" spellcheck="false"></label>
+          <label class="field"><span>パスワード</span><input id="authPass" type="password"></label>
+        </div>
+        <div id="authBearer" class="row" hidden>
+          <label class="field"><span>トークン</span><input id="authToken" type="text" class="mono" placeholder="例: ${token}" spellcheck="false"></label>
+        </div>
+      </div>
+      <div id="req-asserts" class="pane" hidden></div>
+    </section>
+
+    <section id="response">
+      <div class="res-head">
+        <span id="resStatus" class="badge">未送信</span>
+        <span id="resMeta"></span>
+        <span class="spacer"></span>
+        <button id="addEv" class="small" title="この実行結果をテストエビデンスとして記録">エビデンスに追加</button>
+        <button id="copyBody" class="small">ボディをコピー</button>
+      </div>
+      <nav class="tabs" data-group="res">
+        <button data-tab="body" class="on">ボディ</button>
+        <button data-tab="headers">ヘッダー</button>
+        <button data-tab="asserts">アサーション結果</button>
+      </nav>
+      <div id="res-body" class="pane grow"><pre id="resBody"></pre></div>
+      <div id="res-headers" class="pane grow" hidden></div>
+      <div id="res-asserts" class="pane grow" hidden></div>
+    </section>
+  </main>
+
+  <dialog id="dlg"></dialog>
+  <div id="toast" hidden></div>
+  <script src="vendor/write-excel-file.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "EviREST - API Tester",
+  "version": "1.1.0",
+  "description": "HTTP/REST APIを手軽に送信・検証できるAPIテスター。保存、履歴、環境変数、アサーション、テストエビデンス出力に対応。",
+  "action": { "default_title": "EviREST を開く" },
+  "background": { "service_worker": "background.js" },
+  "permissions": ["storage", "unlimitedStorage"],
+  "host_permissions": ["<all_urls>"],
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" }
+}
