@@ -226,6 +226,9 @@ const envColor = (color) => /^#[0-9a-f]{6}$/i.test(color || '') ? color : '';
 function normEnv(e) {
   return { id: uid(), name: String(e.name || '環境'), baseUrl: String(e.baseUrl ?? ''), port: String(e.port ?? ''), color: envColor(e.color), vars: normRows(e.vars) };
 }
+// 一括実行で、1件終わってから次を送るまでの待ち時間（ミリ秒）。送信先に負荷をかけないよう、間隔なしは選べない
+const BATCH_INTERVALS = [500, 1000, 2000, 5000, 10000];
+const batchIntervalOf = (v) => (BATCH_INTERVALS.includes(Number(v)) ? Number(v) : 1000);
 const batchSelectedOf = (r) => typeof r.batchSelected === 'boolean' ? r.batchSelected : r.recordEvidence === true;
 function normReq(r) {
   const q = Object.assign(blankReq(), r, { id: uid() });
@@ -607,6 +610,6 @@ function evidenceSheets(list, masked) {
 // Node.js のテスト用
 if (typeof module === 'object') {
   module.exports = {
-    uid, clone, fmtSize, blankReq, groupRequests, splitUrl, dec, enc, queryRows, queryTemplateUrl, syncQueryRows, pathParamNames, varsOf, sub, ABS, envBase, envBaseUrl, joinUrl, b64, buildRequest, TARGETS, OPS, jsonPath, evalAssert, checkAsserts, normRows, batchSelectedOf, envColor, normEnv, normReq, systemsFromV1, parseImport, mergeImport, AI_PROMPT, EV_MAX, SENSITIVE, esc, fmtTime, evidenceHtml, XL_LINE, XL_CELL, xlText, xlBodyRows, evidenceSheets,
+    uid, clone, fmtSize, blankReq, groupRequests, splitUrl, dec, enc, queryRows, queryTemplateUrl, syncQueryRows, pathParamNames, varsOf, sub, ABS, envBase, envBaseUrl, joinUrl, b64, buildRequest, TARGETS, OPS, jsonPath, evalAssert, checkAsserts, normRows, BATCH_INTERVALS, batchIntervalOf, batchSelectedOf, envColor, normEnv, normReq, systemsFromV1, parseImport, mergeImport, AI_PROMPT, EV_MAX, SENSITIVE, esc, fmtTime, evidenceHtml, XL_LINE, XL_CELL, xlText, xlBodyRows, evidenceSheets,
   };
 }

@@ -25,12 +25,18 @@
     <div id="side-history" class="side-pane" hidden></div>
     <div id="side-evidence" class="side-pane" hidden></div>
     <div class="side-foot">
-      <div class="foot-title">AI用プロンプト</div>
-      <div class="foot-text">APIの仕様をAIに渡して、リクエストをまとめて登録できます。</div>
-      <button id="copyPrompt">プロンプトを表示</button>
-      <div class="foot-row">
-        <button id="exportBtn">エクスポート</button>
-        <button id="importBtn">インポート</button>
+      <button id="footToggle" class="foot-toggle" aria-expanded="true" aria-controls="footBody" title="クリックで開閉">
+        <span>プロンプト・エクスポート・インポート</span>
+        <span class="tw ud open" aria-hidden="true"></span>
+      </button>
+      <div id="footBody" class="foot-body">
+        <div class="foot-title">AI用プロンプト</div>
+        <div class="foot-text">APIの仕様をAIに渡して、リクエストをまとめて登録できます。</div>
+        <button id="copyPrompt">プロンプトを表示</button>
+        <div class="foot-row">
+          <button id="exportBtn">エクスポート</button>
+          <button id="importBtn">インポート</button>
+        </div>
       </div>
     </div>
   </aside>
@@ -42,7 +48,12 @@
         <strong id="batchTarget">環境を選ぶと一括実行できます</strong>
         <div id="batchHint" class="batch-hint">チェックしたリクエストを送信し、結果をすべてエビデンスに保存します。</div>
       </div>
-      <button id="batchRun" class="primary" disabled>選択したリクエストを実行</button>
+      <div class="batch-actions">
+        <label class="batch-interval" title="1件終わってから次を送るまでの待ち時間。送信先に負荷をかけないための設定です">実行間隔
+          <select id="batchInterval"></select>
+        </label>
+        <button id="batchRun" class="primary" disabled>選択したリクエストを実行</button>
+      </div>
     </div>
     <section id="request">
       <div class="request-heading">

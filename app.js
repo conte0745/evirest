@@ -189,8 +189,15 @@ async function send(fromBatch = false) {
   return last;
 }
 
+// 次の送信までの待ち時間。中止されたらすぐに終わる
+function batchWait(run, ms) {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    run.cancelWait = () => { clearTimeout(timer); resolve(); };
+  });
+}
 async function runBatch() {
-  if (batch) { batch.stopped = true; ctrl?.abort(); return; }
+  if (batch) { batch.stopped = true; batch.cancelWait?.(); ctrl?.abort(); return; }
   if (ctrl) { toast('現在の送信が終わってから一括実行してください'); return; }
   const system = curSystem();
   const environment = curEnv();
@@ -210,6 +217,8 @@ async function runBatch() {
   box.hidden = false;
   showTab('res', 'batch');
   button.textContent = '実行を中止';
+  const interval = batchIntervalOf(state.batchInterval);
+  $('#batchInterval').disabled = true;
   $('#side').inert = true;
   $('#request').inert = true;
   $('#addEv').disabled = true;
@@ -217,6 +226,11 @@ async function runBatch() {
   try {
     for (const request of requests) {
       if (run.stopped) break;
+      if (completed > 0) {
+        progress.textContent = `${system.name} / ${environment.name} — ${completed} / ${requests.length} 件 完了。次の送信まで待機中（${interval / 1000}秒間隔）`;
+        await batchWait(run, interval);
+        if (run.stopped) break;
+      }
       progress.textContent = `${system.name} / ${environment.name} — ${completed + 1} / ${requests.length} 件 実行中`;
       req = Object.assign(blankReq(), request);
       req.auth = Object.assign(blankReq().auth, req.auth);
@@ -243,6 +257,7 @@ async function runBatch() {
     req = original;
     batch = null;
     updateBatchControls();
+    $('#batchInterval').disabled = false;
     $('#side').inert = false;
     $('#request').inert = false;
     $('#addEv').disabled = false;
@@ -540,7 +555,7 @@ function updateBatchControls() {
   const selected = system?.requests.filter((r) => r.batchSelected === true).length || 0;
   $('#batchTarget').textContent = env ? `一括実行：${system.name} / ${env.name}` : '環境を選ぶと一括実行できます';
   $('#batchHint').textContent = env
-    ? `一覧で選んだ${selected}件を順番に送信します。結果はすべてエビデンスに保存します。`
+    ? `一覧で選んだ${selected}件を、${batchIntervalOf(state.batchInterval) / 1000}秒の間隔をあけて順番に送信します。結果はすべてエビデンスに保存します。`
     : 'サイドメニューで実行する環境を選んでください。';
   $('#batchRun').textContent = `選択した${selected}件を実行`;
   $('#batchRun').disabled = !env || !selected;
@@ -981,6 +996,24 @@ async function exportXlsxReport(list, masked) {
 }
 
 /* ---------- イベント登録・起動 ---------- */
+// サイドメニュー下部（AI用プロンプト・エクスポート・インポート）の折りたたみ
+function initSideFoot() {
+  const toggle = $('#footToggle');
+  const apply = () => {
+    const open = !state.footCollapsed;
+    $('#footBody').hidden = !open;
+    toggle.setAttribute('aria-expanded', String(open));
+    $('.tw', toggle).classList.toggle('open', open);
+  };
+  toggle.addEventListener('click', () => { state.footCollapsed = !state.footCollapsed; apply(); persist(); });
+  apply();
+}
+function initBatchInterval() {
+  const select = $('#batchInterval');
+  select.replaceChildren(...BATCH_INTERVALS.map((ms) => h('option', { value: ms }, `${ms / 1000}秒`)));
+  select.value = batchIntervalOf(state.batchInterval);
+  select.addEventListener('change', () => { state.batchInterval = batchIntervalOf(select.value); updateBatchControls(); persist(); });
+}
 function initSideResize() {
   const handle = $('#sideResize');
   const side = $('#side');
@@ -1088,6 +1121,8 @@ function bind() {
   const saved = await store.get().catch(() => null);
   if (saved) {
     state.sidebarWidth = Number.isFinite(saved.sidebarWidth) ? saved.sidebarWidth : 280;
+    state.batchInterval = batchIntervalOf(saved.batchInterval);
+    state.footCollapsed = saved.footCollapsed === true;
     state.history = saved.history || [];
     if (saved.systems) {
       state.systems = saved.systems;
@@ -1119,6 +1154,8 @@ function bind() {
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) $('#appVer').textContent = 'v' + chrome.runtime.getManifest().version;
   initTabs();
   initSideResize();
+  initSideFoot();
+  initBatchInterval();
   bind();
   syncUI();
   renderSaved();

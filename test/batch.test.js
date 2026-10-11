@@ -5,7 +5,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const core = require('../core.js');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../app.js'), 'utf8');
-const batchSource = source.slice(source.indexOf('async function runBatch()'), source.indexOf('/* ---------- アサーション'));
+const batchSource = source.slice(source.indexOf('// 次の送信までの待ち時間'), source.indexOf('/* ---------- アサーション'));
 function setup(send) {
   const nodes = new Map();
   const node = () => ({ children: [], replaceChildren(...children) { this.children = children; }, append(child) { this.children.push(child); } });
@@ -19,7 +19,9 @@ function setup(send) {
     $: (id) => { if (!nodes.has(id)) nodes.set(id, node()); return nodes.get(id); },
     h: (_tag, _attrs, ...children) => Object.assign(node(), { children }),
     tabs: [], showTab(group, tab) { context.tabs.push([group, tab]); },
-    state: { evidence: [] }, renderEvidence() {}, updateBatchControls() {}, syncUI() {}, persist() {}, toast() {},
+    state: { evidence: [], batchInterval: 500 }, renderEvidence() {}, updateBatchControls() {}, syncUI() {}, persist() {}, toast() {},
+    // 待ち時間はテスト用に短くする（500ms → 20ms）
+    batchIntervalOf: core.batchIntervalOf, setTimeout: (fn, ms) => setTimeout(fn, ms / 25), clearTimeout,
   });
   context.send = () => send(context);
   vm.runInContext(batchSource, context);
@@ -106,4 +108,40 @@ test('一括実行: 未選択なら送信せず、エビデンスも作らない
   assert.equal(calls, 0);
   assert.equal(context.state.evidence.length, 0);
   assert.equal(context.req, original);
+});
+
+test('一括実行: 1件終わってから、間隔をあけて次を送る', async () => {
+  const times = [];
+  const { context, nodes } = setup(async () => {
+    times.push(['start', Date.now()]);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    times.push(['end', Date.now()]);
+    return { ok: true, status: 200, ms: 5 };
+  });
+  await context.runBatch();
+  assert.equal(times.length, 4);
+  assert.ok(times[2][1] - times[1][1] >= 15, `1件目の終了から2件目の開始まで待つ（実際: ${times[2][1] - times[1][1]}ms）`);
+  assert.equal(nodes.get('#batchInterval').disabled, false, '終了後は間隔を変更できる');
+});
+
+test('一括実行: 待機中に中止すると、待ち時間を残さず終わり、次は送らない', async () => {
+  let calls = 0;
+  const { context, nodes } = setup(async () => { calls++; return { ok: true, status: 200, ms: 1 }; });
+  context.setTimeout = setTimeout; // 待ち時間を短縮しない（500ms）
+  const started = Date.now();
+  const running = context.runBatch();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  assert.match(nodes.get('#batchResults').children[0].textContent, /次の送信まで待機中（0.5秒間隔）/);
+  await context.runBatch(); // 中止
+  await running;
+  assert.ok(Date.now() - started < 300, '500msの待ち時間を待たずに終わる');
+  assert.equal(calls, 1);
+  assert.match(nodes.get('#batchResults').children[0].textContent, /中止（1 \/ 2 件）/);
+});
+
+test('実行間隔: 選べる値以外は1秒にする（間隔なしにはできない）', () => {
+  assert.equal(core.batchIntervalOf(2000), 2000);
+  assert.equal(core.batchIntervalOf('500'), 500);
+  for (const v of [0, -1, 100, undefined, null, 'x']) assert.equal(core.batchIntervalOf(v), 1000);
+  assert.ok(Math.min(...core.BATCH_INTERVALS) >= 500);
 });
