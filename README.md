@@ -162,10 +162,10 @@ pnpm test
 - エビデンス出力の伏せ字はヘッダーのみ対象。ボディ内の機密情報はそのまま出力される
 
 ## 公開ドキュメント・Webサイト
-GitHub Pages（リポジトリの Settings > Pages > `/docs`）を利用して、使い方ガイドやプライバシーポリシーを公開できます。
+GitHub Pages（カスタムドメイン: `evirest.shiftonton.net`）にて公開しています。
 
-- **使い方・ヘルプページ (GitHub Pages)**: [docs/index.html](docs/index.html)
-- **プライバシーポリシー**: [docs/privacy-policy.html](docs/privacy-policy.html)
+- **Webサイト / 使い方ガイド**: [https://evirest.shiftonton.net/](https://evirest.shiftonton.net/)
+- **プライバシーポリシー**: [https://evirest.shiftonton.net/privacy-policy.html](https://evirest.shiftonton.net/privacy-policy.html)
 - **インポートファイル仕様**: [docs/import-format.md](docs/import-format.md)
 
 ## リリース（Chrome Web Store への公開）
