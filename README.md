@@ -135,21 +135,22 @@ Postman、Insomnia、Talend API Tester、Thunder Client、Hoppscotch などの�
 ## 構成
 | ファイル | 役割 |
 | --- | --- |
-| `manifest.json` | 拡張機能の定義（権限、バージョン） |
-| `background.js` | アイコンクリックで画面をタブで開く |
+| `manifest.json` | 拡張機能の定義（Manifest V3、権限、バージョン） |
+| `background.js` | アイコンクリックで拡張機能画面をタブで開く Service Worker |
 | `app.html` / `app.css` / `app.js` | 画面本体 |
-| `core.js` | 画面に依存しない処理（URLの組み立て、アサーション、インポート、レポート生成）。`app.js` より先に読み込む |
-| `test/` | 共通処理と一括実行のテスト |
-| `icons/` | アイコン |
-| `vendor/` | 同梱ライブラリ。`pnpm install` で生成され、Gitには入れない |
-| `docs/` | インポートファイルの書式と見本 |
-| `scripts/vendor.mjs` | `node_modules` から `vendor/` へライブラリをコピーする |
+| `core.js` | 画面に依存しない共通処理（URL組み立て、アサーション、インポート、レポート生成）。`app.js` より先に読み込む |
+| `test/` | 共通処理と一括実行の単体テスト |
+| `icons/` | 拡張機能およびストア用アイコン |
+| `vendor/` | 同梱ライブラリ（Excel出力用）。`pnpm install` で生成され、Gitには入れない |
+| `scripts/vendor.mjs` | `node_modules` から `vendor/` へライブラリをコピーするスクリプト |
+| `docs/` | GitHub Pages公開用ページ（使い方・プライバシーポリシー）および仕様・公開用ドキュメント |
+| `LICENSE` | MIT ライセンス |
 
 ## テスト
-```
+```bash
 pnpm test
 ```
-`core.js` の処理を Node.js 標準のテスト機能で確かめる（追加のライブラリなし）。一括実行の順序・中止・エビデンス保存も検証する。対象は、URLの組み立て、アサーションの判定、インポートの読み込みと旧形式の変換、HTML・Excelレポートの生成。
+`core.js` の処理を Node.js 標準のテスト機能で確かめる（追加のテストライブラリなし）。一括実行の順序・中止・エビデンス保存も検証する。対象は、URLの組み立て、アサーションの判定、インポートの読み込みと旧形式の変換、HTML・Excelレポートの生成。
 
 画面の操作（クリックや表示）は対象外。画面を変えたときは、Chromeに読み込んで手で確かめる。
 
@@ -160,15 +161,30 @@ pnpm test
 - 送信先はユーザーが指定したAPIだけで、それ以外への通信は行わない
 - エビデンス出力の伏せ字はヘッダーのみ対象。ボディ内の機密情報はそのまま出力される
 
-## リリース
+## 公開ドキュメント・Webサイト
+GitHub Pages（リポジトリの Settings > Pages > `/docs`）を利用して、使い方ガイドやプライバシーポリシーを公開できます。
 
-ストア掲載文・権限説明・公開手順は [Chrome Web Store 公開ガイド](docs/publishing/chrome-web-store.md) を参照。公開用の [プライバシーポリシー](docs/publishing/privacy-policy.md) も用意している。運営者・問い合わせ先の設定と、ポリシーのHTTPS公開は提出前に必要。
+- **使い方・ヘルプページ (GitHub Pages)**: [docs/index.html](docs/index.html)
+- **プライバシーポリシー (HTML版)**: [docs/privacy-policy.html](docs/privacy-policy.html)
+- **プライバシーポリシー (Markdown版)**: [docs/publishing/privacy-policy.md](docs/publishing/privacy-policy.md)
+- **Chrome Web Store 登録用コピペシート**: [docs/publishing/store-listing-cheatsheet.md](docs/publishing/store-listing-cheatsheet.md)
+- **Chrome Web Store 公開ガイド**: [docs/publishing/chrome-web-store.md](docs/publishing/chrome-web-store.md)
+- **インポートファイル仕様**: [docs/import-format.md](docs/import-format.md)
+
+## リリース（Chrome Web Store への公開）
 
 1. `manifest.json` の `version` を上げる（`package.json` の `version` も合わせる）
-2. `pnpm zip` を実行する（ライブラリの同梱、構文チェック、テストの後、`dist/evirest-<version>.zip` を作成）
-3. できたZIPをChromeウェブストアにアップロードする
+2. `pnpm zip` を実行する（ライブラリの同梱、構文チェック、テストの後、`dist/evirest-<version>.zip` を自動作成）
+3. [Chrome Web Store 登録用コピペシート](docs/publishing/store-listing-cheatsheet.md) を参照し、Developer Dashboard にZIPをアップロードして掲載文やプライバシー設定を入力する
 
-`pnpm check` だけ実行すると、JSの構文と `manifest.json` の形式を確認できる。
+※ `pnpm check` を実行すると、JSの構文と `manifest.json` の形式を検証できます。
+
+## お問い合わせ・サポート
+
+不具合のご報告や機能要望は、GitHub Issues または下記メールアドレスまでご連絡ください。
+
+- **連絡先 / 問い合わせ先**: `evi-rest@shiftonton.net`
+- **運営**: EviREST Project
 
 ## ライセンス
 
