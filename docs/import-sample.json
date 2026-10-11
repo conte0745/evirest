@@ -3,59 +3,115 @@
   "version": 2,
   "systems": [
     {
+      "id": "crm",
       "name": "顧客管理システム",
       "envs": [
         {
+          "id": "local",
           "name": "ローカル",
           "baseUrl": "http://localhost",
           "port": "8080",
           "vars": [
-            { "k": "token", "v": "" },
-            { "k": "password", "v": "" }
+            {
+              "k": "token",
+              "v": ""
+            },
+            {
+              "k": "password",
+              "v": ""
+            }
           ]
         },
         {
+          "id": "stg",
           "name": "検証",
           "baseUrl": "https://stg.example.com",
           "vars": [
-            { "k": "token", "v": "" },
-            { "k": "password", "v": "" }
+            {
+              "k": "token",
+              "v": ""
+            },
+            {
+              "k": "password",
+              "v": ""
+            }
           ]
         }
       ],
       "requests": [
         {
+          "id": "users-list",
           "name": "ユーザー一覧（2ページ目）",
           "method": "GET",
           "url": "/users?page=2&limit=20",
-          "headers": [{ "k": "Accept", "v": "application/json" }],
-          "auth": { "type": "bearer", "token": "${token}" },
+          "headers": [
+            {
+              "k": "Accept",
+              "v": "application/json"
+            }
+          ],
+          "auth": {
+            "type": "bearer",
+            "token": "${token}"
+          },
           "asserts": [
-            { "target": "status", "op": "eq", "value": "200" },
-            { "target": "json", "path": "items[0].id", "op": "exists" },
-            { "target": "time", "op": "lt", "value": "1000" }
+            {
+              "target": "status",
+              "op": "eq",
+              "value": "200"
+            },
+            {
+              "target": "json",
+              "path": "items[0].id",
+              "op": "exists"
+            },
+            {
+              "target": "time",
+              "op": "lt",
+              "value": "1000"
+            }
           ]
         },
         {
+          "id": "users-create",
           "name": "ユーザー登録",
           "method": "POST",
           "url": "/users",
           "bodyType": "json",
           "body": "{\n  \"name\": \"山田太郎\",\n  \"email\": \"taro@example.com\"\n}",
-          "auth": { "type": "bearer", "token": "${token}" },
+          "auth": {
+            "type": "bearer",
+            "token": "${token}"
+          },
           "asserts": [
-            { "target": "status", "op": "eq", "value": "201" },
-            { "target": "header", "path": "content-type", "op": "contains", "value": "application/json" }
+            {
+              "target": "status",
+              "op": "eq",
+              "value": "201"
+            },
+            {
+              "target": "header",
+              "path": "content-type",
+              "op": "contains",
+              "value": "application/json"
+            }
           ]
         },
         {
+          "id": "login",
           "name": "ログイン（フォーム）",
           "method": "POST",
           "url": "/login",
           "bodyType": "form",
           "form": [
-            { "k": "username", "v": "taro" },
-            { "k": "password", "v": "${password}" }
+            {
+              "k": "username",
+              "v": "taro"
+            },
+            {
+              "k": "password",
+              "v": "${password}"
+            }
           ]
         }
       ]

@@ -7,8 +7,9 @@
   "scripts": {
     "postinstall": "node scripts/vendor.mjs",
     "vendor": "node scripts/vendor.mjs",
-    "check": "node --check app.js && node --check background.js && node -e \"JSON.parse(require('fs').readFileSync('manifest.json','utf8'))\"",
-    "zip": "pnpm vendor && pnpm check && mkdir -p dist && V=$(node -p \"require('./manifest.json').version\") && rm -f dist/evirest-$V.zip && zip -r -X dist/evirest-$V.zip manifest.json background.js app.html app.css app.js icons vendor -x '*.DS_Store' && echo dist/evirest-$V.zip"
+    "check": "node --check core.js && node --check app.js && node --check background.js && node -e \"JSON.parse(require('fs').readFileSync('manifest.json','utf8'))\"",
+    "test": "node --test",
+    "zip": "pnpm vendor && pnpm check && pnpm test && mkdir -p dist && V=$(node -p \"require('./manifest.json').version\") && rm -f dist/evirest-$V.zip && zip -r -X dist/evirest-$V.zip manifest.json background.js app.html app.css core.js app.js icons vendor -x '*.DS_Store' && echo dist/evirest-$V.zip"
   },
   "devDependencies": {
     "write-excel-file": "4.1.1"

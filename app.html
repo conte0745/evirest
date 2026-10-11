@@ -6,8 +6,14 @@
   <link rel="stylesheet" href="app.css">
 </head>
 <body>
+  <header id="top">
+    <img src="icons/icon48.png" alt="" width="24" height="24">
+    <span class="brand">EviREST</span>
+    <span id="appVer" class="ver"></span>
+    <span id="topEnv" class="top-env"></span>
+  </header>
+  <div id="app">
   <aside id="side">
-    <div class="brand">EviREST</div>
     <nav class="tabs" data-group="side">
       <button data-tab="saved" class="on">保存済み</button>
       <button data-tab="history">履歴</button>
@@ -17,9 +23,13 @@
     <div id="side-history" class="side-pane" hidden></div>
     <div id="side-evidence" class="side-pane" hidden></div>
     <div class="side-foot">
-      <button id="exportBtn">エクスポート</button>
-      <button id="importBtn">インポート</button>
-      <input type="file" id="importFile" accept=".json,application/json" hidden>
+      <div class="foot-title">AI用プロンプト</div>
+      <div class="foot-text">AIに貼り付けると、インポート用のJSONを作らせることができます。</div>
+      <button id="copyPrompt">プロンプトを表示</button>
+      <div class="foot-row">
+        <button id="exportBtn">エクスポート</button>
+        <button id="importBtn">インポート</button>
+      </div>
     </div>
   </aside>
 
@@ -100,10 +110,13 @@
       <div id="res-asserts" class="pane grow" hidden></div>
     </section>
   </main>
+  </div>
 
   <dialog id="dlg"></dialog>
+  <dialog id="confirmDlg"></dialog>
   <div id="toast" hidden></div>
   <script src="vendor/write-excel-file.min.js"></script>
+  <script src="core.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

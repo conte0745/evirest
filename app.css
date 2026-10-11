@@ -17,7 +17,7 @@
 [hidden] { display: none !important; }
 html, body { height: 100%; margin: 0; }
 body {
-  display: flex; background: var(--bg); color: var(--text);
+  display: flex; flex-direction: column; background: var(--bg); color: var(--text);
   font: 13px/1.5 system-ui, "Hiragino Sans", "Yu Gothic UI", sans-serif;
 }
 button, input, select, textarea { font: inherit; color: inherit; }
@@ -28,11 +28,18 @@ button {
 button:hover { background: var(--hover); }
 button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
 button.primary:hover { filter: brightness(1.08); background: var(--accent); }
+button.primary.danger, button.primary.danger:hover { background: var(--err); border-color: var(--err); color: #fff; }
 button.small { padding: 2px 8px; font-size: 12px; }
 button.icon { border: none; background: none; padding: 2px 6px; color: var(--muted); }
 button.icon:hover { color: var(--err); }
 input[type=text], input[type=password], select, textarea {
   background: var(--field); border: 1px solid var(--field-line); border-radius: 6px; padding: 6px 10px; min-width: 0;
+}
+/* プルダウン: 標準の矢印は枠に重なるので、自前の矢印を枠の内側に描く */
+select {
+  appearance: none; -webkit-appearance: none; padding-right: 30px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%238a94a0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
 }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: .7; }
 input:disabled { background: transparent; border-style: dashed; border-color: var(--line); }
@@ -46,15 +53,33 @@ input:disabled { background: transparent; border-style: dashed; border-color: va
 .hint { color: var(--muted); font-size: 12px; margin: -2px 0 10px; }
 input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
 
+/* ヘッダー */
+#top {
+  flex: none; display: flex; align-items: center; gap: 8px; height: 44px; padding: 0 14px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+#top img { display: block; border-radius: 6px; }
+.brand { font-size: 16px; font-weight: 700; color: var(--accent); }
+.ver { color: var(--muted); font-size: 11px; }
+.top-env {
+  margin-left: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  color: var(--muted); font-size: 12px;
+}
+.top-env b { color: var(--text); font-size: 13px; }
+.top-env code { font-family: var(--mono); margin-left: 8px; }
+#app { flex: 1; min-height: 0; display: flex; }
+
 /* サイドバー */
 #side {
   width: 280px; flex: none; display: flex; flex-direction: column;
-  background: var(--panel); border-right: 1px solid var(--line); height: 100vh;
+  background: var(--panel); border-right: 1px solid var(--line);
 }
-.brand { padding: 12px 14px 6px; font-size: 16px; font-weight: 700; color: var(--accent); }
 .side-pane { flex: 1; overflow: auto; padding: 6px 8px; }
-.side-foot { display: flex; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--line); }
-.side-foot button { flex: 1; }
+.side-foot { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-top: 1px solid var(--line); }
+.foot-title { font-size: 12px; font-weight: 700; }
+.foot-text { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.foot-row { display: flex; gap: 6px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
+.foot-row button { flex: 1; }
 /* システム ＞ 環境 ＞ リクエスト のツリー */
 .sys-head { display: flex; align-items: center; font-weight: 700; padding: 8px 6px 2px; }
 .sys-head span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -92,7 +117,7 @@ input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px s
 dialog textarea { min-height: 70px; }
 
 /* メイン */
-main { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; }
+main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #request { padding: 10px 14px 0; border-bottom: 1px solid var(--line); background: var(--bg); }
 .req-name { font-weight: 600; min-height: 20px; margin-bottom: 4px; color: var(--muted); }
 .line { display: flex; gap: 6px; align-items: stretch; }
@@ -165,6 +190,15 @@ dialog::backdrop { background: rgba(0, 0, 0, .4); }
 .dlg-head h3 { flex: 1; margin: 0; }
 .dlg-head button.icon { font-size: 20px; line-height: 1; padding: 0 6px; }
 dialog .actions button { min-width: 88px; }
+#confirmDlg { width: min(440px, 90vw); }
+#confirmDlg p { margin: 0 0 6px; }
+.import-text { min-height: 180px; font-size: 12px; }
+.file-name { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlg-err { color: var(--err); font-weight: 600; margin-top: 4px; }
+.prompt-text { min-height: min(52vh, 460px); font-size: 12px; line-height: 1.6; }
+.dlg-note { margin-top: 6px; color: var(--ok); font-weight: 600; text-align: center; }
+.dlg-note.bad { color: var(--err); }
+dialog:has(.prompt-text) { width: min(760px, 92vw); }
 dialog h4 { margin: 14px 0 6px; font-size: 13px; }
 dialog .row { align-items: flex-end; }
 dialog .row input[type=text], dialog .row select { flex: 1; }

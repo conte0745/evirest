@@ -35,9 +35,11 @@ HTTP/REST APIの送信・検証と、テストエビデンスの出力ができ�
 ### 保存と履歴
 - リクエストに名前を付けてシステムに保存、上書き保存
 - 履歴は直近100件（リクエスト内容のみ。レスポンスは残さない）。履歴から開くと、送信時のシステムと環境に戻る
-- システム（環境とリクエストを含む）をJSONでエクスポート・インポート
+- システム（環境とリクエストを含む）をJSONでエクスポート・インポート。インポートは、ファイルを選ぶ方法と、JSONを貼り付ける方法の両方に対応
+- インポートは `id` で突き合わせる。同じ `id` のシステム・環境・リクエストは更新し、ないものは追加する（削除はしない）
 - cURLコマンドとしてコピー
 - インポートファイルは手作業やAIでも作れる。書式は [docs/import-format.md](docs/import-format.md)
+- サイドバー左下の「プロンプトを表示」で、AIにインポートファイルを作らせる依頼文を表示し、その場で編集してコピーできる（編集内容は保存しない）
 
 ### テストエビデンス
 - 実行結果に、テストケースID・確認内容・実施者・備考を付けて記録する
@@ -118,10 +120,22 @@ Postman、Insomnia、Talend API Tester、Thunder Client、Hoppscotch などの�
 | `manifest.json` | 拡張機能の定義（権限、バージョン） |
 | `background.js` | アイコンクリックで画面をタブで開く |
 | `app.html` / `app.css` / `app.js` | 画面本体 |
+| `core.js` | 画面に依存しない処理（URLの組み立て、アサーション、インポート、レポート生成）。`app.js` より先に読み込む |
+| `test/` | `core.js` のテスト |
 | `icons/` | アイコン |
 | `vendor/` | 同梱ライブラリ。`pnpm install` で生成され、Gitには入れない |
 | `docs/` | インポートファイルの書式と見本 |
 | `scripts/vendor.mjs` | `node_modules` から `vendor/` へライブラリをコピーする |
+
+## テスト
+```
+pnpm test
+```
+`core.js` の処理を Node.js 標準のテスト機能で確かめる（追加のライブラリなし）。対象は、URLの組み立て、アサーションの判定、インポートの読み込みと旧形式の変換、HTML・Excelレポートの生成。
+
+画面の操作（クリックや表示）は対象外。画面を変えたときは、Chromeに読み込んで手で確かめる。
+
+処理を足すときは、画面に触れない部分を `core.js` に書き、`test/core.test.js` にテストを足す。
 
 ## データの扱い
 - 保存先は `chrome.storage.local`（そのPCのブラウザ内）のみ
@@ -130,7 +144,7 @@ Postman、Insomnia、Talend API Tester、Thunder Client、Hoppscotch などの�
 
 ## リリース
 1. `manifest.json` の `version` を上げる（`package.json` の `version` も合わせる）
-2. `pnpm zip` を実行する（ライブラリの同梱と構文チェックの後、`dist/evirest-<version>.zip` を作成）
+2. `pnpm zip` を実行する（ライブラリの同梱、構文チェック、テストの後、`dist/evirest-<version>.zip` を作成）
 3. できたZIPをChromeウェブストアにアップロードする
 
 `pnpm check` だけ実行すると、JSの構文と `manifest.json` の形式を確認できる。
