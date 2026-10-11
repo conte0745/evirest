@@ -169,3 +169,7 @@ pnpm test
 3. できたZIPをChromeウェブストアにアップロードする
 
 `pnpm check` だけ実行すると、JSの構文と `manifest.json` の形式を確認できる。
+
+## ライセンス
+
+[MIT License](LICENSE) © 2026 EviREST Project
