@@ -165,17 +165,14 @@ pnpm test
 GitHub Pages（リポジトリの Settings > Pages > `/docs`）を利用して、使い方ガイドやプライバシーポリシーを公開できます。
 
 - **使い方・ヘルプページ (GitHub Pages)**: [docs/index.html](docs/index.html)
-- **プライバシーポリシー (HTML版)**: [docs/privacy-policy.html](docs/privacy-policy.html)
-- **プライバシーポリシー (Markdown版)**: [docs/publishing/privacy-policy.md](docs/publishing/privacy-policy.md)
-- **Chrome Web Store 登録用コピペシート**: [docs/publishing/store-listing-cheatsheet.md](docs/publishing/store-listing-cheatsheet.md)
-- **Chrome Web Store 公開ガイド**: [docs/publishing/chrome-web-store.md](docs/publishing/chrome-web-store.md)
+- **プライバシーポリシー**: [docs/privacy-policy.html](docs/privacy-policy.html)
 - **インポートファイル仕様**: [docs/import-format.md](docs/import-format.md)
 
 ## リリース（Chrome Web Store への公開）
 
 1. `manifest.json` の `version` を上げる（`package.json` の `version` も合わせる）
 2. `pnpm zip` を実行する（ライブラリの同梱、構文チェック、テストの後、`dist/evirest-<version>.zip` を自動作成）
-3. [Chrome Web Store 登録用コピペシート](docs/publishing/store-listing-cheatsheet.md) を参照し、Developer Dashboard にZIPをアップロードして掲載文やプライバシー設定を入力する
+3. Chrome Developer Dashboard にZIPをアップロードし、ストア掲載情報やプライバシー設定を入力して審査に提出する
 
 ※ `pnpm check` を実行すると、JSの構文と `manifest.json` の形式を検証できます。
 

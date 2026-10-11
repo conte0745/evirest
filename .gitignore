@@ -23,3 +23,7 @@ dist/
 
 # pnpm install で node_modules から生成する同梱ライブラリ
 vendor/
+
+# ストア公開用資料（ローカル作業用）
+docs/publishing/
+
