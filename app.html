@@ -11,6 +11,7 @@
     <span class="brand">EviREST</span>
     <span id="appVer" class="ver"></span>
     <span id="topEnv" class="top-env"></span>
+    <span class="spacer"></span>
   </header>
   <div id="app">
   <aside id="side">
@@ -24,7 +25,7 @@
     <div id="side-evidence" class="side-pane" hidden></div>
     <div class="side-foot">
       <div class="foot-title">AI用プロンプト</div>
-      <div class="foot-text">AIに貼り付けると、インポート用のJSONを作らせることができます。</div>
+      <div class="foot-text">APIの仕様をAIに渡して、リクエストをまとめて登録できます。</div>
       <button id="copyPrompt">プロンプトを表示</button>
       <div class="foot-row">
         <button id="exportBtn">エクスポート</button>
@@ -32,33 +33,52 @@
       </div>
     </div>
   </aside>
+  <div id="sideResize" role="separator" tabindex="0" aria-label="サイドメニューの幅" aria-orientation="vertical" aria-controls="side" aria-valuemin="240" aria-valuemax="720" aria-valuenow="280" title="ドラッグまたは左右キーで幅を変更（ダブルクリックで戻す）"></div>
 
   <main>
+    <div class="batch-controls">
+      <div>
+        <strong id="batchTarget">環境を選ぶと一括実行できます</strong>
+        <div id="batchHint" class="batch-hint">チェックしたリクエストを送信し、結果をすべてエビデンスに保存します。</div>
+      </div>
+      <button id="batchRun" class="primary" disabled>選択したリクエストを実行</button>
+    </div>
     <section id="request">
-      <div id="reqName" class="req-name"></div>
+      <div class="request-heading">
+        <div id="reqName" class="req-name"></div>
+        <button id="newReq">＋ リクエストを作成</button>
+      </div>
       <div class="line">
         <select id="method">
           <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option>
-          <option>DELETE</option><option>HEAD</option><option>OPTIONS</option>
+          <option>DELETE</option><option>HEAD</option><option>OPTIONS</option><option>QUERY</option>
         </select>
         <div class="urlbox">
           <button id="base" class="base" hidden></button>
           <input id="url" type="text" spellcheck="false">
         </div>
         <button id="send" class="primary" title="Ctrl / ⌘ + Enter">送信</button>
-        <button id="save">保存</button>
-        <button id="newReq">新規</button>
-        <button id="curl" title="cURLコマンドとしてコピー">cURL</button>
+        <button id="save">リクエストを保存</button>
+        <button id="curl" title="cURLコマンドとしてコピー">cURLをコピー</button>
       </div>
 
+      <div id="requestPreview" class="res-request" hidden>
+        <span>送信予定URL</span>
+        <code id="requestPreviewUrl"></code>
+      </div>
       <nav class="tabs" data-group="req">
         <button data-tab="params" class="on">クエリ</button>
+        <button data-tab="path">パスパラメータ</button>
         <button data-tab="headers">ヘッダー</button>
         <button data-tab="body">ボディ</button>
         <button data-tab="auth">認証</button>
         <button data-tab="asserts">アサーション</button>
       </nav>
       <div id="req-params" class="pane"></div>
+      <div id="req-path" class="pane" hidden>
+        <p class="hint">例：/users/${id} の id に対応する値を入力します。空欄やチェックを外した場合は、環境に設定した id の値を使います。/users/{id} と書いた場合は、この欄で値を指定してください。</p>
+        <div id="pathParams"></div>
+      </div>
       <div id="req-headers" class="pane" hidden></div>
       <div id="req-body" class="pane" hidden>
         <div class="row">
@@ -100,11 +120,21 @@
         <button id="addEv" class="small" title="この実行結果をテストエビデンスとして記録">エビデンスに追加</button>
         <button id="copyBody" class="small">ボディをコピー</button>
       </div>
+      <div id="resRequest" class="res-request" hidden>
+        <span>送信URL</span>
+        <code id="resRequestUrl"></code>
+      </div>
       <nav class="tabs" data-group="res">
+        <button data-tab="batch">一括実行結果</button>
         <button data-tab="body" class="on">ボディ</button>
         <button data-tab="headers">ヘッダー</button>
         <button data-tab="asserts">アサーション結果</button>
       </nav>
+      <div id="res-batch" class="pane grow" hidden>
+        <div id="batchResults" class="batch-results" aria-live="polite">
+          <p class="empty">環境を選び、一覧で実行するリクエストにチェックを入れてください。「選択した○件を実行」を押すと、ここに結果が表示されます。</p>
+        </div>
+      </div>
       <div id="res-body" class="pane grow"><pre id="resBody"></pre></div>
       <div id="res-headers" class="pane grow" hidden></div>
       <div id="res-asserts" class="pane grow" hidden></div>

@@ -307,3 +307,119 @@ test('画面のファイルが core.js を app.js より先に読み込む', () 
   const html = fs.readFileSync(path.join(__dirname, '../app.html'), 'utf8');
   assert.ok(html.indexOf('src="core.js"') > 0 && html.indexOf('src="core.js"') < html.indexOf('src="app.js"'));
 });
+
+
+test('パスパラメータ: パスだけを抽出し、重複を除外する', () => {
+  assert.deepEqual(core.pathParamNames('https://{host}/users/{id}/${env}/{id}?q={query}#fragment{hash}'), ['id', 'env']);
+});
+
+test('パスパラメータ: ${eventId} を展開し、パス欄の値を環境変数より優先する', () => {
+  const r = reqOf({ url: '/api/events/${eventId}/choice-option-previews', pathParams: [kv('eventId', 'event/123')] });
+  const e = env('https://api.example.com', '', [kv('eventId', 'env-value')]);
+  assert.equal(core.buildRequest(r, e).url, 'https://api.example.com/api/events/event%2F123/choice-option-previews');
+  r.pathParams[0].v = '';
+  assert.equal(core.buildRequest(r, e).url, 'https://api.example.com/api/events/env-value/choice-option-previews');
+  r.pathParams[0].v = 'local-value';
+  r.pathParams[0].on = false;
+  assert.equal(core.buildRequest(r, e).url, 'https://api.example.com/api/events/env-value/choice-option-previews');
+});
+test('パスパラメータ: 値を1セグメントとしてエンコードし、環境変数を展開する', () => {
+  const r = reqOf({ url: '/users/{id}/{id}?q=${q}', pathParams: [kv('id', '${user}')] });
+  assert.equal(core.buildRequest(r, env('https://api.example.com', '', [kv('user', '山田/a?b#c'), kv('q', 'ok')])).url,
+    'https://api.example.com/users/%E5%B1%B1%E7%94%B0%2Fa%3Fb%23c/%E5%B1%B1%E7%94%B0%2Fa%3Fb%23c?q=ok');
+});
+test('パスパラメータ: 未設定・無効・空の値はプレースホルダーを残す', () => {
+  for (const pathParams of [[], [kv('id', '123', false)], [kv('id', '')]]) {
+    assert.equal(core.buildRequest(reqOf({ url: 'https://api.example.com/{id}', pathParams })).url, 'https://api.example.com/{id}');
+  }
+});
+test('パスパラメータ: インポートで維持し、旧形式では空配列を補う', () => {
+  assert.deepEqual(core.normReq({ url: '/users/{id}', pathParams: [{ k: 'id', v: 123 }] }).pathParams, [kv('id', '123')]);
+  assert.deepEqual(core.normReq({ url: '/users' }).pathParams, []);
+});
+
+
+test('クエリ: 入力URLをテンプレートに保ち、送信時だけ値を展開する', () => {
+  const r = reqOf({ url: '/api/events?ids=old', params: [kv('ids', '7a0c3802-test')] });
+  r.url = core.queryTemplateUrl(r.url, r.params);
+  assert.equal(r.url, '/api/events?ids=${ids}');
+  assert.equal(core.buildRequest(r, env('http://localhost:3001')).url, 'http://localhost:3001/api/events?ids=7a0c3802-test');
+  assert.equal(r.url, '/api/events?ids=${ids}');
+  assert.deepEqual(core.syncQueryRows(r.url, r.params), r.params);
+  assert.deepEqual(core.normReq(r).params, r.params);
+});
+test('クエリ: 重複名・特殊文字・環境変数の値を保持する', () => {
+  const params = [kv('id', 'a&b'), kv('id', '${other}'), kv('flag', '')];
+  const url = core.queryTemplateUrl('/users/${path}#top', params);
+  assert.deepEqual(core.syncQueryRows(url, params), params);
+  const r = reqOf({ url, params, pathParams: [kv('path', '123')] });
+  assert.equal(core.buildRequest(r, env('https://api.example.com', '', [kv('other', 'c/d')])).url,
+    'https://api.example.com/users/123?id=a%26b&id=c%2Fd&flag#top');
+});
+
+
+test('環境色: 有効な色を保持し、旧データや不正な色は標準色に戻す', () => {
+  assert.equal(core.normEnv({ name: '本番', color: '#EF4444' }).color, '#EF4444');
+  assert.equal(core.normEnv({ name: '検証' }).color, '');
+  assert.equal(core.normEnv({ color: 'red; background:url(x)' }).color, '');
+  const result = core.parseImport(JSON.stringify({ app: 'evirest', systems: [{ name: 'API', envs: [{ name: '本番', color: '#ef4444' }], requests: [] }] }));
+  assert.equal(result.error, undefined);
+  const systems = [];
+  core.mergeImport(systems, result.list);
+  assert.equal(systems[0].envs[0].color, '#ef4444');
+  const current = systems[0];
+  core.mergeImport(systems, [{ id: current.id, envs: [{ id: current.envs[0].id, color: '#2563eb' }] }]);
+  assert.equal(current.envs[0].color, '#2563eb');
+});
+
+test('パッケージ: 保存形式を正規化し、未分類とサブパッケージをまとめる', () => {
+  const first = core.normReq({ name: 'a', package: ' events ', subpackage: ' members ' });
+  const second = core.normReq({ name: 'b', package: 'events', subpackage: 'members' });
+  const third = core.normReq({ name: 'c', package: 'events' });
+  const legacy = core.normReq({ name: 'old' });
+  assert.equal(first.package, 'events');
+  assert.equal(first.subpackage, 'members');
+  assert.equal(legacy.package, '');
+  const groups = core.groupRequests([first, second, third, legacy]);
+  assert.deepEqual(groups.map((g) => g.name), ['events', '']);
+  assert.deepEqual(groups[0].subgroups.map((g) => g.name), ['members', '']);
+  assert.deepEqual(groups[0].subgroups[0].requests.map((r) => r.name), ['a', 'b']);
+  assert.equal(groups[1].subgroups[0].requests[0], legacy);
+});
+
+test('更新したサンプルとAIプロンプト: 分類・環境色・エビデンス・パラメータを取り込める', () => {
+  for (const text of [sample(), core.AI_PROMPT]) {
+    const { systems, error } = imp(text);
+    assert.equal(error, undefined);
+    const system = systems[0];
+    const request = system.requests[0];
+    assert.equal(request.package, 'ユーザー');
+    assert.equal(request.subpackage, '一覧');
+    assert.equal(request.batchSelected, true);
+    assert.equal(system.envs[0].color, '#0f766e');
+    assert.equal(request.url, '/tenants/${tenantId}/users?page=${page}&limit=${limit}');
+    assert.equal(core.buildRequest(request, system.envs[0]).url, 'http://localhost:8080/tenants/demo-tenant/users?page=2&limit=20');
+    const again = imp(JSON.stringify({ app: 'evirest', version: 2, systems }));
+    assert.equal(again.systems[0].requests[0].subpackage, '一覧');
+    assert.equal(core.buildRequest(again.systems[0].requests[0], again.systems[0].envs[0]).url,
+      'http://localhost:8080/tenants/demo-tenant/users?page=2&limit=20');
+  }
+});
+
+
+test('一括実行対象: 旧チェック状態を引き継ぎ、新しい設定を優先する', () => {
+  assert.equal(core.normReq({ recordEvidence: true }).batchSelected, true);
+  assert.equal(core.normReq({ recordEvidence: true, batchSelected: false }).batchSelected, false);
+  assert.equal(core.normReq({}).batchSelected, false);
+  assert.equal(Object.hasOwn(core.normReq({ recordEvidence: true }), 'recordEvidence'), false);
+});
+
+
+test('QUERY: メソッドとJSONボディを保持し、画面でも選択できる', () => {
+  const request = core.normReq({ method: 'QUERY', url: '/search', bodyType: 'json', body: '{"q":"test"}' });
+  const built = core.buildRequest(request, env('https://api.example.com'));
+  assert.equal(built.method, 'QUERY');
+  assert.equal(built.body, '{"q":"test"}');
+  assert.ok(built.headers.some(([k, v]) => k === 'Content-Type' && v === 'application/json'));
+  assert.match(fs.readFileSync(path.join(__dirname, '../app.html'), 'utf8'), /<option>QUERY<\/option>/);
+});

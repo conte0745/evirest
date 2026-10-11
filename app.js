@@ -46,6 +46,7 @@ const state = { systems: [], activeSystem: '', activeEnv: '', history: [], draft
 let req = state.draft;      // 編集中のリクエスト
 let last = null;            // 直近のレスポンス
 let ctrl = null;            // 送信中の AbortController
+let batch = null;
 
 let saveTimer;
 function persist() {
@@ -84,7 +85,7 @@ function showTab(group, tab) {
 function kvEditor(box, rows, onChange, ph = ['名前', '値']) {
   const draw = (focusLast) => {
     const els = rows.map((row, i) => {
-      const cb = h('input', { type: 'checkbox', title: '有効/無効' });
+      const cb = h('input', { type: 'checkbox', title: 'この項目を使用する' });
       cb.checked = row.on;
       cb.addEventListener('change', () => { row.on = cb.checked; cb.parentElement.classList.toggle('off', !row.on); onChange(); });
       const k = h('input', { type: 'text', placeholder: ph[0], spellcheck: 'false' });
@@ -106,17 +107,15 @@ function kvEditor(box, rows, onChange, ph = ['名前', '値']) {
 
 /* ---------- URL とクエリの同期 ---------- */
 function paramsFromUrl() {
-  const enabled = queryRows(req.url);
-  const disabled = req.params.filter((p) => !p.on);
-  req.params.splice(0, req.params.length, ...enabled, ...disabled);
+  const rows = syncQueryRows(req.url, req.params);
+  req.params.splice(0, req.params.length, ...rows);
   renderParams();
+  renderPathParams();
 }
 function urlFromParams() {
-  const { base, hash } = splitUrl(req.url);
-  const q = req.params.filter((p) => p.on && p.k)
-    .map((p) => enc(p.k) + (p.v !== '' ? '=' + enc(p.v) : '')).join('&');
-  req.url = base + (q ? '?' + q : '') + hash;
+  req.url = queryTemplateUrl(req.url, req.params);
   $('#url').value = req.url;
+  renderRequestPreview();
 }
 
 /* ---------- 環境変数 ---------- */
@@ -129,16 +128,20 @@ const baseUrl = (vars) => envBaseUrl(curEnv(), vars);
 const build = (r) => buildRequest(r, curEnv());
 
 /* ---------- 送信 ---------- */
-async function send() {
+async function send(fromBatch = false) {
+  if (batch && fromBatch !== true) return;
   if (ctrl) { ctrl.abort(); return; }
   const b = build(req);
   if (!b.url) { toast('URLを入力してください'); return; }
-  if (!ABS.test(b.url)) { toast('送信先が決まりません。左の一覧で環境を選ぶか、URLを http:// から入力してください'); return; }
+  if (!ABS.test(b.url)) { toast('送信先の環境を選ぶか、https:// などから始まるURLを入力してください'); return; }
+  const missingPath = pathParamNames(b.url);
+  if (missingPath.length) { toast('パスパラメータの値を設定してください: ' + missingPath.join(', ')); return; }
   const unresolved = (b.url + JSON.stringify(b.headers) + (b.body || '')).match(/\$\{[^}]+\}/);
 
   const btn = $('#send');
   btn.textContent = '中止';
   setStatus('送信中…', '');
+  showRequestUrl(b.url);
   ctrl = new AbortController();
   const t0 = performance.now();
   try {
@@ -177,12 +180,93 @@ async function send() {
   last.sys = (curSystem() || {}).name || '';
   last.env = (curEnv() || {}).name || '';
   renderResponse();
-  if (unresolved) toast('未定義の変数があります: ' + unresolved[0]);
+  if (unresolved) toast('値が設定されていない変数があります: ' + unresolved[0]);
 
   state.history.unshift({ id: uid(), at: Date.now(), status: last.status, ms: last.ms, sys: state.activeSystem, env: state.activeEnv, envName: last.env, req: clone(req) });
   state.history.length = Math.min(state.history.length, 100);
   renderHistory();
   persist();
+  return last;
+}
+
+async function runBatch() {
+  if (batch) { batch.stopped = true; ctrl?.abort(); return; }
+  if (ctrl) { toast('現在の送信が終わってから一括実行してください'); return; }
+  const system = curSystem();
+  const environment = curEnv();
+  if (!system || !environment) { toast('実行する環境を選んでください'); return; }
+  const requests = clone(system.requests.filter((r) => r.batchSelected === true));
+  if (!requests.length) { toast('一括実行するリクエストにチェックを入れてください'); return; }
+  const original = req;
+  const run = batch = { stopped: false };
+  const button = $('#batchRun');
+  const box = $('#batchResults');
+  const progress = h('p');
+  const report = [];
+  const htmlButton = h('button', { class: 'small', onclick: () => openHtmlReport(evidenceHtml(report, true)) }, 'HTMLで開く');
+  const excelButton = h('button', { class: 'small', onclick: () => exportXlsxReport(report, true) }, 'Excel出力');
+  htmlButton.disabled = excelButton.disabled = true;
+  box.replaceChildren(progress, h('div', { class: 'ev-tools' }, htmlButton, excelButton));
+  box.hidden = false;
+  showTab('res', 'batch');
+  button.textContent = '実行を中止';
+  $('#side').inert = true;
+  $('#request').inert = true;
+  $('#addEv').disabled = true;
+  let completed = 0;
+  try {
+    for (const request of requests) {
+      if (run.stopped) break;
+      progress.textContent = `${system.name} / ${environment.name} — ${completed + 1} / ${requests.length} 件 実行中`;
+      req = Object.assign(blankReq(), request);
+      req.auth = Object.assign(blankReq().auth, req.auth);
+      syncUI();
+      const result = await send(true);
+      showTab('res', 'batch');
+      const assertions = result?.ok ? checkAsserts(req.asserts, result, varsOf(environment)) : [];
+      const passed = result?.ok && result.status < 400 && assertions.every((a) => a.pass);
+      const status = !result ? '未実行（URL・パラメータを確認）'
+        : result.error === '中止' ? '中止'
+        : `${passed ? 'OK' : 'NG'} · ${result.ok ? result.status : '通信エラー'} · ${result.ms} ms`
+          + (assertions.length ? ` · 検証 ${assertions.filter((a) => a.pass).length}/${assertions.length}` : '');
+      const entry = batchEvidence(req, result, assertions, passed, system.name, environment.name, status);
+      report.push(entry);
+      state.evidence.push(clone(entry));
+      renderEvidence();
+      box.append(h('div', { class: 'batch-row' }, h('span', {}, `${req.method} ${req.name || req.url}`), h('span', {}, status)));
+      completed++;
+    }
+    progress.textContent = `${system.name} / ${environment.name} — ${run.stopped ? '中止' : '完了'}（${completed} / ${requests.length} 件）`;
+  } catch (e) {
+    progress.textContent = `一括実行に失敗しました: ${e.message}（${completed} / ${requests.length} 件）`;
+  } finally {
+    req = original;
+    batch = null;
+    updateBatchControls();
+    $('#side').inert = false;
+    $('#request').inert = false;
+    $('#addEv').disabled = false;
+    htmlButton.disabled = excelButton.disabled = !report.length;
+    syncUI();
+    showTab('res', 'batch');
+    persist();
+  }
+}
+
+function batchEvidence(request, result, asserts, passed, system, env, status) {
+  const r = result;
+  const built = r?.req || build(request);
+  const cut = (text) => ({ text: text.slice(0, EV_MAX), full: text.length > EV_MAX ? text.length : 0 });
+  const requestBody = cut(built.body || '');
+  const responseBody = cut(r?.image ? `（画像データ: ${r.ct}）` : r?.text || '');
+  return {
+    id: uid(), caseId: '', title: request.name || request.url, tester: '', memo: status,
+    at: r?.at || Date.now(), system, env, method: built.method, url: built.url,
+    reqHeaders: clone(built.headers), reqBody: requestBody.text, reqBodyFull: requestBody.full,
+    ok: r?.ok || false, status: r?.status || 0, statusText: r?.statusText || '', ms: r?.ms || 0, size: r?.size || 0,
+    resHeaders: clone(r?.headers || []), resBody: responseBody.text, resBodyFull: responseBody.full,
+    asserts: clone(asserts), verdict: passed ? 'OK' : 'NG',
+  };
 }
 
 /* ---------- アサーション ---------- */
@@ -232,9 +316,14 @@ function setStatus(text, cls) {
   s.textContent = text;
   s.className = 'badge ' + cls;
 }
+function showRequestUrl(url) {
+  $('#resRequestUrl').textContent = url;
+  $('#resRequest').hidden = false;
+}
 function renderResponse() {
   const r = last;
   if (!r) return;
+  showRequestUrl(r.req.url);
   if (r.ok) setStatus(`${r.status} ${r.statusText}`.trim(), 's' + String(r.status)[0]);
   else setStatus(r.error, 'err');
   $('#resMeta').textContent = r.ok ? `${r.ms} ms ・ ${fmtSize(r.size)}` : `${r.ms} ms`;
@@ -255,9 +344,9 @@ function renderResponse() {
 
   const out = $('#res-asserts');
   if (!req.asserts.length) {
-    out.replaceChildren(h('div', { class: 'empty' }, 'アサーションは未設定です（リクエスト側の「アサーション」タブで追加）'));
+    out.replaceChildren(h('div', { class: 'empty' }, '検証条件がありません。「アサーション」タブで追加してください。'));
   } else if (!r.ok) {
-    out.replaceChildren(h('div', { class: 'ar fail' }, '✗ レスポンスを取得できなかったため評価できません'));
+    out.replaceChildren(h('div', { class: 'ar fail' }, '✗ 応答がなかったため、結果を検証できません'));
   } else {
     const results = runAsserts(r);
     const passed = results.filter((x) => x.pass).length;
@@ -273,6 +362,18 @@ function renderResponse() {
 function renderParams() {
   kvEditor($('#req-params'), req.params, () => { urlFromParams(); persist(); });
 }
+function renderPathParams() {
+  for (const name of pathParamNames(req.url)) {
+    if (!req.pathParams.some((p) => p.k === name)) req.pathParams.push({ on: true, k: name, v: '' });
+  }
+  kvEditor($('#pathParams'), req.pathParams, () => { renderRequestPreview(); persist(); }, ['パラメータ名', '値']);
+  renderRequestPreview();
+}
+function renderRequestPreview() {
+  const url = build(req).url;
+  $('#requestPreviewUrl').textContent = url;
+  $('#requestPreview').hidden = !req.url.trim();
+}
 function renderBodyMode() {
   const t = req.bodyType;
   $('#bodyText').hidden = !(t === 'json' || t === 'text');
@@ -283,7 +384,24 @@ function renderAuthMode() {
   $('#authBasic').hidden = req.auth.type !== 'basic';
   $('#authBearer').hidden = req.auth.type !== 'bearer';
 }
+function colorDot(env) {
+  const dot = h('span', { class: 'env-color', 'aria-hidden': 'true' });
+  dot.style.backgroundColor = envColor(env.color) || 'var(--accent)';
+  return dot;
+}
+function applyEnvColor(el, color) {
+  const valid = envColor(color);
+  el.style.setProperty('--env-color', valid || 'var(--accent)');
+  if (!valid) { el.style.removeProperty('--env-text'); return; }
+  const channels = [1, 3, 5].map((i) => {
+    const c = parseInt(valid.slice(i, i + 2), 16) / 255;
+    return c <= .04045 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4;
+  });
+  const luminance = channels[0] * .2126 + channels[1] * .7152 + channels[2] * .0722;
+  el.style.setProperty('--env-text', luminance > .179 ? '#000000' : '#ffffff');
+}
 function renderBase() {
+  updateBatchControls();
   const el = $('#base');
   const e = curEnv();
   const vars = envVars();
@@ -292,21 +410,28 @@ function renderBase() {
   el.hidden = !base;
   el.replaceChildren(h('b', {}, e ? `${curSystem().name} / ${e.name}` : ''), ' ' + base);
   el.classList.toggle('off', abs);
+  applyEnvColor(el, e?.color);
+  applyEnvColor($('#send'), e?.color);
+  applyEnvColor($('#batchRun'), e?.color);
   // ヘッダーにも現在の送信先を出す
   $('#topEnv').replaceChildren(...(e
-    ? [h('b', {}, `${curSystem().name} / ${e.name}`), h('code', {}, base || '（ベースURL未設定）')]
-    : ['環境が選ばれていません（URLを http:// から入力して送信します）']));
-  el.title = abs ? 'URL欄が http:// などから始まっているため、ベースURLは使われません' : 'この環境のベースURLに送信します（クリックで編集）';
+    ? [colorDot(e), h('b', {}, `${curSystem().name} / ${e.name}`), h('code', {}, base || '（送信先URLを設定してください）')]
+    : ['環境を選ぶか、送信先のURLを直接入力してください']));
+  el.title = abs ? 'URL欄に入力した送信先を使います' : 'このこの環境に送信します（クリックで送信先を編集）';
   $('#url').placeholder = base
-    ? '/users?id=1   （${変数名} で環境変数を使えます）'
-    : 'https://api.example.com/users?id=1   （左の一覧で環境を選ぶと、パスだけで入力できます）';
+    ? '/users?id=1   （${id} などの変数も使えます）'
+    : 'https://api.example.com/users?id=1   （環境を選ぶと /users などのパスだけで入力できます）';
+  renderRequestPreview();
 }
 function syncUI() {
   $('#reqName').textContent = req.name ? req.name : '（未保存のリクエスト）';
   $('#method').value = req.method;
+  req.params = syncQueryRows(req.url, req.params);
+  urlFromParams();
   $('#url').value = req.url;
   renderBase();
   renderParams();
+  renderPathParams();
   kvEditor($('#req-headers'), req.headers, persist, ['ヘッダー名', '値']);
   for (const r of $$('input[name=bodyType]')) r.checked = r.value === req.bodyType;
   $('#bodyText').value = req.body;
@@ -337,29 +462,30 @@ function selectEnv(sys, env) {
   if (env) openEnvs.add(envKey(sys.id, env.id));
 }
 function renderSaved() {
+  updateBatchControls();
   const box = $('#side-saved');
   const addSys = h('button', { class: 'add', onclick: () => systemDialog() }, '＋ システムを追加');
   if (!state.systems.length) {
     box.replaceChildren(
-      h('div', { class: 'empty' }, 'システムはまだありません。システム（例: 顧客管理）を追加し、その中に環境（検証・本番など）とリクエストを保存します。'),
+      h('div', { class: 'empty' }, 'まずシステムを作成してください。APIの用途ごとに、送信先とリクエストをまとめられます。'),
       addSys);
     return;
   }
-  box.replaceChildren(...state.systems.flatMap((s) => [
+  box.replaceChildren(addSys, ...state.systems.flatMap((s) => [
     h('div', { class: 'sys-head' },
       h('span', { title: s.name }, s.name),
-      h('button', { class: 'icon', title: '環境を追加・編集', onclick: () => envDialog(s) }, '環境'),
-      h('button', { class: 'icon', title: 'システム名を変更', onclick: () => systemDialog(s) }, '名前'),
+      h('button', { class: 'small', onclick: () => createEnvDialog(s) }, '＋ 環境を作成'),
+      h('button', { class: 'small', onclick: () => systemDialog(s) }, 'システムを編集'),
       h('button', {
-        class: 'icon', title: 'システムを削除',
+        class: 'small delete-action', title: 'システムを削除',
         onclick: async () => {
           if (!await confirmDelete(`システム「${s.name}」を削除しますか？\n中の環境 ${s.envs.length} 件と、リクエスト ${s.requests.length} 件も削除されます。`)) return;
           state.systems = state.systems.filter((x) => x !== s);
           if (state.activeSystem === s.id) { state.activeSystem = ''; state.activeEnv = ''; }
           renderSaved(); renderBase(); persist();
         },
-      }, '×')),
-    ...(s.envs.length ? [] : [h('div', { class: 'empty sub-empty' }, '環境がありません。「環境」から追加してください。')]),
+      }, 'システムを削除')),
+    ...(s.envs.length ? [] : [h('div', { class: 'empty sub-empty' }, '環境がありません。「＋ 環境を作成」から追加してください。')]),
     ...s.envs.flatMap((e) => {
       const on = s.id === state.activeSystem && e.id === state.activeEnv;
       const key = envKey(s.id, e.id);
@@ -373,15 +499,22 @@ function renderSaved() {
             renderSaved(); renderBase(); persist();
           },
         },
-          h('span', { class: 'tw' }, open ? '▾' : '▸'),
+          h('span', { class: 'tw' + (open ? ' open' : ''), 'aria-hidden': 'true' }),
+          colorDot(e),
           h('span', { class: 'name' }, e.name),
-          h('span', { class: 'sub' }, envBase(e).replace(/^https?:\/\//, ''))),
+          h('span', { class: 'sub' }, envBase(e).replace(/^https?:\/\//, '')),
+          h('button', { class: 'small env-edit', 'aria-label': e.name + 'を編集', onclick: (event) => { event.stopPropagation(); editEnvDialog(s, e); } }, '編集')),
         ...(!open ? [] : !s.requests.length
-          ? [h('div', { class: 'empty sub-empty req' }, 'リクエストはまだありません。「保存」で追加できます。')]
-          : s.requests.map((r) => h('div', {
+          ? [h('div', { class: 'empty sub-empty req' }, 'リクエストがありません。「＋ リクエストを作成」から入力し、保存してください。')]
+          : [batchSelectAll(s, e), ...groupRequests(s.requests).flatMap((group) => [
+            h('div', { class: 'package-heading' }, group.name || '未分類'),
+            ...group.subgroups.flatMap((subgroup) => [
+              ...(subgroup.name ? [h('div', { class: 'subpackage-heading' }, subgroup.name)] : []),
+              ...subgroup.requests.map((r) => h('div', {
             class: 'item req' + (on && r.id === req.id ? ' on' : ''), title: r.url,
             onclick: () => { selectEnv(s, e); loadReq(r); renderSaved(); },
           },
+            batchCheckbox(r, e),
             h('span', { class: 'm ' + r.method }, r.method),
             h('span', { class: 'label' }, r.name || r.url),
             h('button', {
@@ -392,10 +525,56 @@ function renderSaved() {
                 s.requests = s.requests.filter((x) => x !== r);
                 renderSaved(); persist();
               },
-            }, '×')))),
+            }, '×'))),
+            ]),
+          ])]),
       ];
     }),
-  ]), addSys);
+  ]));
+}
+function updateBatchControls() {
+  if (batch) return;
+  const system = curSystem();
+  const env = curEnv();
+  const count = system?.requests.length || 0;
+  const selected = system?.requests.filter((r) => r.batchSelected === true).length || 0;
+  $('#batchTarget').textContent = env ? `一括実行：${system.name} / ${env.name}` : '環境を選ぶと一括実行できます';
+  $('#batchHint').textContent = env
+    ? `一覧で選んだ${selected}件を順番に送信します。結果はすべてエビデンスに保存します。`
+    : 'サイドメニューで実行する環境を選んでください。';
+  $('#batchRun').textContent = `選択した${selected}件を実行`;
+  $('#batchRun').disabled = !env || !selected;
+}
+function batchSelectAll(system, environment) {
+  const input = h('input', { type: 'checkbox', class: 'evidence-check', 'aria-label': system.name + 'の一括実行対象をすべて選択' });
+  input.style.accentColor = envColor(environment.color) || 'var(--accent)';
+  const count = system.requests.filter((r) => r.batchSelected === true).length;
+  input.checked = count === system.requests.length;
+  input.indeterminate = count > 0 && count < system.requests.length;
+  input.addEventListener('change', () => {
+    for (const request of system.requests) request.batchSelected = input.checked;
+    if (curSystem()?.id === system.id && system.requests.some((r) => r.id === req.id)) req.batchSelected = input.checked;
+    renderSaved();
+    persist();
+  });
+  return h('label', { class: 'evidence-select-hint' }, input, `一括実行の対象をすべて選択（${count}/${system.requests.length}）`);
+}
+function batchCheckbox(request, environment) {
+  const input = h('input', {
+    type: 'checkbox', class: 'evidence-check',
+    title: '一括実行の対象にする',
+    'aria-label': `${request.name || request.url}を一括実行の対象にする`,
+    onclick: (event) => event.stopPropagation(),
+  });
+  input.checked = request.batchSelected === true;
+  input.style.accentColor = envColor(environment.color) || 'var(--accent)';
+  input.addEventListener('change', () => {
+    request.batchSelected = input.checked;
+    if (req.id === request.id && curSystem()?.requests.includes(request)) req.batchSelected = input.checked;
+    renderSaved();
+    persist();
+  });
+  return input;
 }
 function renderHistory() {
   const box = $('#side-history');
@@ -404,7 +583,14 @@ function renderHistory() {
     return;
   }
   box.replaceChildren(
-    h('button', { class: 'small', onclick: () => { state.history = []; renderHistory(); persist(); } }, '履歴をクリア'),
+    h('button', {
+      class: 'small', onclick: async () => {
+        if (!await confirmDelete(`履歴 ${state.history.length} 件をすべて削除しますか？\n保存済みリクエストとエビデンスは残ります。`)) return;
+        state.history = [];
+        renderHistory();
+        persist();
+      },
+    }, '履歴をクリア'),
     ...state.history.map((x) => h('div', {
       class: 'item', title: x.req.url,
       // 送信したときのシステム・環境が残っていれば、そこに戻す
@@ -446,7 +632,7 @@ function confirmDelete(message) {
     $('#confirmDlg').addEventListener('close', () => resolve(false), { once: true });
   });
 }
-const newEnv = (name, baseUrl = '', port = '') => ({ id: uid(), name, baseUrl, port, vars: [] });
+const newEnv = (name, baseUrl = '', port = '') => ({ id: uid(), name, baseUrl, port, color: '', vars: [] });
 const portInput = () => h('input', { type: 'text', class: 'mono', placeholder: '例: 8080', inputmode: 'numeric', spellcheck: 'false' });
 
 function systemDialog(sys) {
@@ -458,7 +644,7 @@ function systemDialog(sys) {
   base.value = 'http://localhost';
   const port = portInput();
   port.value = '8080';
-  const body = openDialog(sys ? 'システム名を変更' : 'システムを追加', () => {
+  const body = openDialog(sys ? 'システムを編集' : 'システムを追加', () => {
     if (!name.value.trim()) { name.focus(); return false; }
     if (sys) sys.name = name.value.trim();
     else {
@@ -473,8 +659,8 @@ function systemDialog(sys) {
     ...(sys ? [] : [
       h('h4', {}, '最初の環境'),
       h('div', { class: 'row' }, field('環境名', envName)),
-      h('div', { class: 'row' }, field('ベースURL（送信先のドメイン）', base), h('label', { class: 'field port' }, h('span', {}, 'ポート番号（任意）'), port)),
-      h('div', { class: 'hint' }, '環境はあとから「環境」ボタンで追加できます（検証・本番など）。'),
+      h('div', { class: 'row' }, field('送信先URL', base), h('label', { class: 'field port' }, h('span', {}, 'ポート番号（任意）'), port)),
+      h('div', { class: 'hint' }, '検証用・本番用の送信先は、あとから「＋ 環境を作成」で追加できます。'),
     ]),
   );
   name.focus();
@@ -483,6 +669,10 @@ function systemDialog(sys) {
 function saveDialog() {
   const name = h('input', { type: 'text', placeholder: '例: ユーザー一覧' });
   name.value = req.name || '';
+  const packageInput = h('input', { type: 'text', placeholder: '例: イベント' });
+  packageInput.value = req.package || '';
+  const subpackageInput = h('input', { type: 'text', placeholder: '例: 参加者' });
+  subpackageInput.value = req.subpackage || '';
   const NEW = '__new__';
   const sel = h('select', {}, ...state.systems.map((c) => h('option', { value: c.id }, c.name)), h('option', { value: NEW }, '＋ 新しいシステム'));
   // リクエストのidはシステムの中でしか一意でないので、選択中のシステムを先に探す
@@ -504,6 +694,8 @@ function saveDialog() {
       state.systems.push(target);
     }
     req.name = name.value.trim();
+    req.package = packageInput.value.trim();
+    req.subpackage = subpackageInput.value.trim();
     if (!req.id) req.id = uid();
     // 別のシステムに保存し直したら、元のシステムからは外す。同じシステムなら、並び順を変えずに置き換える
     if (current && current !== target) current.requests = current.requests.filter((r) => r.id !== req.id);
@@ -517,52 +709,94 @@ function saveDialog() {
   });
   body.append(
     h('div', { class: 'row' }, field('リクエスト名', name)),
+    h('div', { class: 'row' }, field('パッケージ（任意）', packageInput), field('サブパッケージ（任意）', subpackageInput)),
     h('div', { class: 'row' }, field('保存先のシステム', sel), newField),
     h('div', { class: 'hint' }, '保存したリクエストは、そのシステムのすべての環境で使えます。'),
   );
   name.focus();
 }
 
-function envDialog(sys) {
-  // 写しを編集し、「保存」を押したときだけ反映する
-  const envs = clone(sys.envs);
-  if (!envs.length) envs.push(newEnv('ローカル', 'http://localhost', '8080'));
-  let cur = (sys.id === state.activeSystem && envs.find((e) => e.id === state.activeEnv)) || envs[0];
-  const body = openDialog(`環境 — ${sys.name}`, () => {
-    sys.envs = envs;
-    if (sys.id === state.activeSystem && !envs.some((e) => e.id === state.activeEnv)) state.activeEnv = envs[0] ? envs[0].id : '';
+function createEnvDialog(sys) {
+  const draft = newEnv('');
+  environmentForm('環境を作成 — ' + sys.name, draft, () => {
+    sys.envs.push(draft);
+    if (sys.id === state.activeSystem && !curEnv()) selectEnv(sys, draft);
     persist();
-    toast('保存しました');
-  });
+    toast('環境を作成しました');
+  }, { saveLabel: '環境を作成' });
+}
+function editEnvDialog(sys, selected) {
+  if (!selected) return;
+  const draft = clone(selected);
+  environmentForm('環境を編集 — ' + selected.name, draft, () => {
+    const index = sys.envs.findIndex((e) => e.id === selected.id);
+    if (index < 0) return false;
+    sys.envs[index] = draft;
+    persist();
+    toast('環境を更新しました');
+  }, { saveLabel: '変更を保存', onDelete: async () => {
+    if (!await confirmDelete(`環境「${selected.name}」を削除しますか？\nシステムのリクエストは残ります。`)) return;
+    sys.envs = sys.envs.filter((e) => e.id !== selected.id);
+    if (sys.id === state.activeSystem && state.activeEnv === selected.id) selectEnv(sys, sys.envs[0]);
+    $('#dlg').close();
+    renderSaved(); renderBase(); persist();
+    toast('環境を削除しました');
+  } });
+}
+function environmentForm(title, cur, save, options) {
+  const error = h('div', { class: 'dlg-err', role: 'alert' });
+  const body = openDialog(title, () => {
+    if (!cur.name.trim()) { error.textContent = '環境名を入力してください'; return false; }
+    cur.name = cur.name.trim();
+    return save();
+  }, { saveLabel: options.saveLabel });
+  const saveButton = $('#dlg .actions button.primary');
+  saveButton.classList.add('env-colored');
   const draw = () => {
-    const sel = h('select', {}, envs.map((e) => h('option', { value: e.id }, e.name || '（名前なし）')));
-    const add = h('button', { onclick: () => { cur = newEnv('新しい環境'); envs.push(cur); draw(); } }, '＋ 環境を追加');
-    if (!cur) {
-      body.replaceChildren(h('div', { class: 'row' }, add), h('div', { class: 'hint' }, '環境がありません。このまま保存すると、このシステムの環境はすべて削除されます。'));
-      return;
-    }
-    sel.value = cur.id;
-    sel.addEventListener('change', () => { cur = envs.find((e) => e.id === sel.value); draw(); });
+    applyEnvColor(saveButton, cur.color);
     const name = h('input', { type: 'text', placeholder: '例: 検証' });
     name.value = cur.name;
-    name.addEventListener('input', () => { cur.name = name.value; sel.selectedOptions[0].textContent = name.value || '（名前なし）'; });
+    name.addEventListener('input', () => { cur.name = name.value; error.textContent = ''; });
     const base = h('input', { type: 'text', class: 'mono', placeholder: '例: https://api.example.com', spellcheck: 'false' });
     base.value = cur.baseUrl || '';
     base.addEventListener('input', () => { cur.baseUrl = base.value; });
     const port = portInput();
     port.value = cur.port || '';
     port.addEventListener('input', () => { cur.port = port.value; });
-    const vars = h('div');
+    const presets = [
+      ['#0f766e', 'ティール'], ['#2563eb', 'ブルー'],
+      ['#16a34a', 'グリーン'], ['#d97706', 'オレンジ'],
+      ['#dc2626', 'レッド'], ['#9333ea', 'パープル'],
+      ['#db2777', 'ピンク'], ['#64748b', 'グレー'],
+    ];
+    const currentColor = envColor(cur.color);
+    const color = h('select', { 'aria-label': '環境の色' },
+      h('option', { value: '' }, '標準色'),
+      ...presets.map(([value, label]) => h('option', { value }, label)),
+      ...(currentColor && !presets.some(([value]) => value === currentColor.toLowerCase())
+        ? [h('option', { value: currentColor }, `現在の色（${currentColor}）`)] : []));
+    color.value = currentColor.toLowerCase();
+    if (color.selectedIndex < 0) color.value = currentColor;
+    const swatch = colorDot(cur);
+    color.addEventListener('change', () => {
+      cur.color = color.value;
+      swatch.style.backgroundColor = color.value || 'var(--accent)';
+      applyEnvColor(saveButton, cur.color);
+    });
+    const resetColor = h('button', { onclick: () => { cur.color = ''; draw(); } }, '標準色に戻す');
+    const vars = h('div', { class: 'env-vars' });
     kvEditor(vars, cur.vars, () => {}, ['変数名', '値']);
     body.replaceChildren(
-      h('div', { class: 'row' }, field('編集する環境', sel), add,
-        h('button', { onclick: () => { envs.splice(envs.indexOf(cur), 1); cur = envs[0]; draw(); } }, 'この環境を削除')),
       h('div', { class: 'row' }, field('環境名', name)),
-      h('div', { class: 'row' }, field('ベースURL（送信先のドメイン）', base), h('label', { class: 'field port' }, h('span', {}, 'ポート番号（任意）'), port)),
-      h('div', { class: 'hint' }, 'ベースURLを設定すると、URL欄にはパス（/users など）だけを入力します。送信先はこの環境のベースURL（＋ポート番号）になります。'),
+      error,
+      h('div', { class: 'row' },
+        field('環境の色', h('div', { class: 'env-color-control' }, color, swatch)), resetColor),
+      h('div', { class: 'row' }, field('送信先URL', base), h('label', { class: 'field port' }, h('span', {}, 'ポート番号（任意）'), port)),
+      h('div', { class: 'hint' }, '例：https://api.example.com を設定すると、リクエストには /users などのパスだけを入力できます。'),
       h('h4', {}, '変数'),
       vars,
-      h('div', { class: 'hint' }, 'URL・ヘッダー・ボディ・認証・期待値の中で ${変数名} と書くと、選択中の環境の値に置き換わります。'),
+      h('div', { class: 'hint' }, 'リクエストに ${token} などと書くと、この環境に設定した値を使います。環境ごとに異なるトークンや値を登録できます。'),
+      ...(options.onDelete ? [h('div', { class: 'row' }, h('button', { class: 'delete-action', onclick: options.onDelete }, '環境を削除'))] : []),
     );
   };
   draw();
@@ -610,13 +844,13 @@ function importDialog() {
     const { error, message } = importText(text.value);
     if (error) { err.textContent = error; err.hidden = false; return false; }
     toast(message);
-  });
+  }, { saveLabel: '取り込む' });
   body.append(
     h('h4', {}, '方法1: ファイルを選ぶ'),
     h('div', { class: 'row' }, h('button', { onclick: () => file.click() }, 'ファイルを選ぶ…'), fileName, file),
     h('h4', {}, '方法2: JSONを貼り付ける'),
-    h('div', { class: 'row' }, field('JSON（AIの回答をそのまま貼り付けてもよい）', text)),
-    h('div', { class: 'hint' }, 'ファイルを選ぶと、中身が上の欄に入ります。「保存」を押すと取り込みます。id が同じシステム・環境・リクエストは更新し、id がない（または新しい）ものは追加します。削除はしません。'),
+    h('div', { class: 'row' }, field('取り込むJSON（AIの回答も貼り付けられます）', text)),
+    h('div', { class: 'hint' }, 'ファイルを選ぶか、JSONを貼り付けて「取り込む」を押してください。エクスポートしたデータを編集して取り込むと、既存の設定を更新できます。取り込みだけで既存のデータが削除されることはありません。'),
     err,
   );
 }
@@ -633,7 +867,7 @@ function promptDialog() {
     return false;
   }, { saveLabel: 'コピー' });
   body.append(
-    h('div', { class: 'hint' }, '最後の「# 依頼」を書き換えてからコピーし、AIに貼り付けます。AIが返したJSONは「インポート」で取り込めます。ここで編集した内容は保存されません。'),
+    h('div', { class: 'hint' }, '最後の「# 依頼」に作りたいAPIテストを書き、コピーしてAIに渡してください。返ってきたJSONは「インポート」で登録できます。この依頼文の編集内容は保存されません。'),
     text,
     note,
   );
@@ -687,7 +921,7 @@ function renderEvidence() {
   mask.addEventListener('change', () => { state.maskEv = mask.checked; persist(); });
   box.replaceChildren(
     h('div', { class: 'ev-tools' },
-      h('button', { class: 'small', onclick: exportEvidence }, 'HTMLレポート出力'),
+      h('button', { class: 'small', onclick: exportEvidence }, 'HTMLで開く'),
       h('button', { class: 'small', onclick: exportEvidenceXlsx }, 'Excel出力'),
       h('button', {
         class: 'small',
@@ -720,14 +954,26 @@ function evidenceFileName(ext) {
   return `api-evidence-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.${ext}`;
 }
 function exportEvidence() {
-  saveBlob(new Blob([evidenceHtml(state.evidence, state.maskEv)], { type: 'text/html' }), evidenceFileName('html'));
+  openHtmlReport(evidenceHtml(state.evidence, state.maskEv));
+}
+function openHtmlReport(html) {
+  const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+  const link = h('a', { href: url, target: '_blank', rel: 'noopener' });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // タブの読み込み後に解放する。HTMLはブラウザの保存・印刷で出力できる。
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 /* ---------- テストエビデンス（Excel） ---------- */
 async function exportEvidenceXlsx() {
-  if (typeof writeXlsxFile !== 'function') { toast('Excel出力のライブラリがありません（pnpm install を実行してください）'); return; }
+  return exportXlsxReport(state.evidence, state.maskEv);
+}
+async function exportXlsxReport(list, masked) {
+  if (typeof writeXlsxFile !== 'function') { toast('Excel出力に必要なファイルが見つかりません。拡張機能を更新するか、再インストールしてください。'); return; }
   try {
-    const blob = await writeXlsxFile(evidenceSheets(state.evidence, state.maskEv)).toBlob();
+    const blob = await writeXlsxFile(evidenceSheets(list, masked)).toBlob();
     saveBlob(blob, evidenceFileName('xlsx'));
   } catch (e) {
     toast('Excel出力に失敗: ' + e.message);
@@ -735,7 +981,67 @@ async function exportEvidenceXlsx() {
 }
 
 /* ---------- イベント登録・起動 ---------- */
+function initSideResize() {
+  const handle = $('#sideResize');
+  const side = $('#side');
+  let drag = null;
+  const maxWidth = () => Math.max(240, Math.min(720, $('#app').clientWidth - 368));
+  function applyWidth(width) {
+    const value = Math.round(Math.max(240, Math.min(maxWidth(), width)));
+    side.style.width = value + 'px';
+    handle.setAttribute('aria-valuemax', maxWidth());
+    handle.setAttribute('aria-valuenow', value);
+    handle.setAttribute('aria-valuetext', value + 'ピクセル');
+    return value;
+  }
+  function saveWidth(width) {
+    state.sidebarWidth = applyWidth(width);
+    persist();
+  }
+  applyWidth(state.sidebarWidth || 280);
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || drag) return;
+    e.preventDefault();
+    handle.focus();
+    drag = { id: e.pointerId, x: e.clientX, width: side.getBoundingClientRect().width };
+    handle.setPointerCapture(e.pointerId);
+    document.body.classList.add('resizing-side');
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (drag && e.pointerId === drag.id) applyWidth(drag.width + e.clientX - drag.x);
+  });
+  function finish(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag = null;
+    document.body.classList.remove('resizing-side');
+    saveWidth(side.getBoundingClientRect().width);
+    if (handle.hasPointerCapture(e.pointerId)) handle.releasePointerCapture(e.pointerId);
+  }
+  for (const event of ['pointerup', 'pointercancel', 'lostpointercapture']) handle.addEventListener(event, finish);
+  handle.addEventListener('keydown', (e) => {
+    const width = side.getBoundingClientRect().width;
+    const step = e.shiftKey ? 50 : 10;
+    const next = { ArrowLeft: width - step, ArrowRight: width + step, Home: 240, End: maxWidth() }[e.key];
+    if (next === undefined) return;
+    e.preventDefault();
+    saveWidth(next);
+  });
+  handle.addEventListener('dblclick', () => saveWidth(280));
+  window.addEventListener('resize', () => applyWidth(state.sidebarWidth || 280));
+}
 function bind() {
+  $('#batchRun').addEventListener('click', runBatch);
+  // 動的に追加されるボタンと Enter / Space によるクリックも共通で扱う。
+  const buttonFeedback = new WeakMap();
+  document.addEventListener('click', (e) => {
+    const button = e.target.closest('button');
+    if (!button || button.disabled || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    buttonFeedback.get(button)?.cancel();
+    buttonFeedback.set(button, button.animate([
+      { boxShadow: 'inset 0 0 0 2px currentColor' },
+      { boxShadow: 'inset 0 0 0 2px transparent' },
+    ], { duration: 240, easing: 'ease-out' }));
+  }, { capture: true });
   $('#method').addEventListener('change', (e) => { req.method = e.target.value; persist(); });
   $('#url').addEventListener('input', (e) => { req.url = e.target.value; paramsFromUrl(); renderBase(); persist(); });
   $('#url').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
@@ -764,7 +1070,7 @@ function bind() {
   $('#authPass').addEventListener('input', (e) => { req.auth.pass = e.target.value; persist(); });
   $('#authToken').addEventListener('input', (e) => { req.auth.token = e.target.value; persist(); });
 
-  $('#base').addEventListener('click', () => { if (curSystem()) envDialog(curSystem()); });
+  $('#base').addEventListener('click', () => { if (curSystem() && curEnv()) editEnvDialog(curSystem(), curEnv()); });
   $('#dlg').addEventListener('close', () => { renderSaved(); renderBase(); });
 
   $('#copyBody').addEventListener('click', async () => {
@@ -781,6 +1087,7 @@ function bind() {
 (async function init() {
   const saved = await store.get().catch(() => null);
   if (saved) {
+    state.sidebarWidth = Number.isFinite(saved.sidebarWidth) ? saved.sidebarWidth : 280;
     state.history = saved.history || [];
     if (saved.systems) {
       state.systems = saved.systems;
@@ -801,9 +1108,17 @@ function bind() {
     state.draft = Object.assign(blankReq(), saved.draft || {});
     state.draft.auth = Object.assign(blankReq().auth, state.draft.auth);
   }
+  // 旧エビデンス用チェックを実行対象の選択として引き継ぐ。
+  for (const system of state.systems) for (const request of system.requests) {
+    request.batchSelected = batchSelectedOf(request);
+    delete request.recordEvidence;
+  }
+  state.draft.batchSelected = batchSelectedOf(saved?.draft || state.draft);
+  delete state.draft.recordEvidence;
   req = state.draft;
   if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.getManifest) $('#appVer').textContent = 'v' + chrome.runtime.getManifest().version;
   initTabs();
+  initSideResize();
   bind();
   syncUI();
   renderSaved();

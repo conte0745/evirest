@@ -29,17 +29,37 @@ button:hover { background: var(--hover); }
 button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
 button.primary:hover { filter: brightness(1.08); background: var(--accent); }
 button.primary.danger, button.primary.danger:hover { background: var(--err); border-color: var(--err); color: #fff; }
+#send.primary, #batchRun.primary, button.primary.env-colored {
+  background: var(--env-color, var(--accent));
+  border-color: var(--env-color, var(--accent));
+  color: var(--env-text, var(--accent-text));
+}
 button.small { padding: 2px 8px; font-size: 12px; }
 button.icon { border: none; background: none; padding: 2px 6px; color: var(--muted); }
 button.icon:hover { color: var(--err); }
+button.delete-action { color: var(--err); }
+/* 通常・主要・タブ・アイコンのすべてで押下が伝わるようにする */
+button { transition: transform 80ms ease, box-shadow 80ms ease; }
+button:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: inset 0 0 0 2px currentColor;
+}
+button:disabled { cursor: not-allowed; opacity: .5; }
+@media (prefers-reduced-motion: reduce) {
+  button { transition: none; }
+  button:active:not(:disabled) { transform: none; }
+}
 input[type=text], input[type=password], select, textarea {
   background: var(--field); border: 1px solid var(--field-line); border-radius: 6px; padding: 6px 10px; min-width: 0;
 }
 /* プルダウン: 標準の矢印は枠に重なるので、自前の矢印を枠の内側に描く */
 select {
-  appearance: none; -webkit-appearance: none; padding-right: 30px; cursor: pointer;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5' fill='none' stroke='%238a94a0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right 10px center;
+  appearance: none; -webkit-appearance: none; padding-right: 34px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 5.5 8 10l4.5-4.5' fill='none' stroke='%234a5460' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center; background-size: 16px 16px;
+}
+@media (prefers-color-scheme: dark) {
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 5.5 8 10l4.5-4.5' fill='none' stroke='%23e6e9ed' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
 }
 input::placeholder, textarea::placeholder { color: var(--muted); opacity: .7; }
 input:disabled { background: transparent; border-style: dashed; border-color: var(--line); }
@@ -67,13 +87,31 @@ input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px s
 }
 .top-env b { color: var(--text); font-size: 13px; }
 .top-env code { font-family: var(--mono); margin-left: 8px; }
+.env-color { display: inline-block; width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: 0 0 0 1px var(--field-line); }
+.top-env .env-color { margin-right: 6px; }
+.env-color-control { display: flex; align-items: center; gap: 10px; }
+.env-color-control select { flex: 1; min-width: 0; }
+.env-color-control .env-color { width: 14px; height: 14px; }
+input[type=color] { width: 56px; height: 34px; padding: 3px; border: 1px solid var(--field-line); border-radius: 6px; background: var(--field); cursor: pointer; }
 #app { flex: 1; min-height: 0; display: flex; }
 
 /* サイドバー */
 #side {
   width: 280px; flex: none; display: flex; flex-direction: column;
+  container-type: inline-size;
   background: var(--panel); border-right: 1px solid var(--line);
 }
+#sideResize {
+  flex: none; width: 8px; cursor: col-resize; touch-action: none;
+  background: var(--bg); position: relative;
+}
+#sideResize::after {
+  content: ''; position: absolute; inset: 0 2px; border-radius: 3px;
+}
+#sideResize:hover::after, #sideResize:focus-visible::after,
+body.resizing-side #sideResize::after { background: var(--accent); }
+#sideResize:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+body.resizing-side, body.resizing-side * { cursor: col-resize !important; user-select: none !important; }
 .side-pane { flex: 1; overflow: auto; padding: 6px 8px; }
 .side-foot { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-top: 1px solid var(--line); }
 .foot-title { font-size: 12px; font-weight: 700; }
@@ -81,8 +119,13 @@ input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px s
 .foot-row { display: flex; gap: 6px; margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--line); }
 .foot-row button { flex: 1; }
 /* システム ＞ 環境 ＞ リクエスト のツリー */
-.sys-head { display: flex; align-items: center; font-weight: 700; padding: 8px 6px 2px; }
-.sys-head span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sys-head { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; font-weight: 700; padding: 12px 6px 6px; }
+.sys-head > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sys-head button { font-weight: 400; }
+@container (max-width: 479px) {
+  .sys-head > span { flex: 0 0 100%; }
+}
+.env-edit { margin-left: auto; }
 .sys-head button.icon { font-size: 11px; padding: 2px 5px; }
 .sys-head button.icon:hover { color: var(--accent); }
 .sys-head button.icon:last-child:hover { color: var(--err); }
@@ -91,12 +134,18 @@ input:focus, select:focus, textarea:focus, button:focus-visible { outline: 2px s
   border-left: 3px solid transparent;
 }
 .env-head:hover { background: var(--hover); }
-.env-head .tw { width: 10px; flex: none; color: var(--muted); font-size: 10px; }
+.env-head .tw { width: 18px; height: 24px; flex: none; display: grid; place-items: center; color: var(--text); }
+.env-head .tw::before { content: ''; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); }
+.env-head .tw.open::before { transform: translateY(-2px) rotate(45deg); }
 .env-head .name { font-weight: 600; white-space: nowrap; }
 .env-head .sub { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font: 11px var(--mono); }
 .env-head.on { border-left-color: var(--accent); background: var(--hover); }
 .env-head.on .name { color: var(--accent); }
 .item.req { margin-left: 26px; }
+.package-heading { margin: 10px 6px 4px 26px; font-weight: 700; overflow-wrap: anywhere; }
+.subpackage-heading { margin: 6px 6px 3px 36px; color: var(--muted); font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.evidence-select-hint { display: flex; align-items: center; gap: 6px; margin: 6px 6px 4px 32px; color: var(--muted); font-size: 11px; cursor: pointer; }
+.evidence-check { flex: none; width: 13px; height: 13px; margin: 0 3px 0 0; accent-color: var(--accent); cursor: pointer; }
 .item.on { background: var(--hover); font-weight: 600; }
 .sub-empty { padding: 4px 6px 4px 26px; font-size: 12px; }
 .sub-empty.req { margin-left: 18px; }
@@ -118,8 +167,13 @@ dialog textarea { min-height: 70px; }
 
 /* メイン */
 main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.batch-controls { flex: none; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 16px; padding: 10px 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
+.batch-controls > div { min-width: 0; overflow-wrap: anywhere; }
+.batch-hint { font-size: 12px; color: var(--muted); margin-top: 3px; }
 #request { padding: 10px 14px 0; border-bottom: 1px solid var(--line); background: var(--bg); }
 .req-name { font-weight: 600; min-height: 20px; margin-bottom: 4px; color: var(--muted); }
+.request-heading { display: flex; gap: 10px; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.request-heading .req-name { margin: 0; }
 .line { display: flex; gap: 6px; align-items: stretch; }
 .line > * { min-height: 38px; }
 .line > button { padding: 5px 14px; }
@@ -139,6 +193,7 @@ main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
   font: 700 12px system-ui, "Hiragino Sans", "Yu Gothic UI", sans-serif; color: var(--accent-text);
   background: var(--accent); border-radius: 4px; padding: 2px 7px; margin-right: 4px;
 }
+.base b { background: var(--env-color, var(--accent)); color: var(--env-text, var(--accent-text)); }
 .base.off { text-decoration: line-through; }
 .base.off b { background: var(--muted); }
 .tabs { display: flex; gap: 2px; margin-top: 10px; border-bottom: 1px solid var(--line); }
@@ -173,6 +228,14 @@ textarea { width: 100%; min-height: 150px; resize: vertical; font-family: var(--
 .badge.s4 { color: var(--warn); border-color: var(--warn); }
 .badge.s5, .badge.err { color: var(--err); border-color: var(--err); }
 #resMeta { color: var(--muted); }
+.res-request { display: flex; align-items: baseline; gap: 8px; padding: 8px 14px 0; min-width: 0; }
+.res-request > span { flex: none; color: var(--muted); font-size: 12px; }
+.res-request code { font: 12px/1.5 var(--mono); overflow-wrap: anywhere; min-width: 0; user-select: text; }
+#requestPreview { padding: 8px 0 0; }
+.batch-results { min-width: 0; }
+.batch-results p { margin: 0 0 6px; }
+.batch-results .batch-row { display: flex; gap: 8px; padding: 3px 0; overflow-wrap: anywhere; }
+.batch-results .batch-row span:first-child { flex: 1; min-width: 0; }
 pre { margin: 0; font: 12px/1.5 var(--mono); white-space: pre-wrap; word-break: break-all; }
 #res-body img { max-width: 100%; }
 table.hd { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12px; }
@@ -200,6 +263,9 @@ dialog .actions button { min-width: 88px; }
 .dlg-note.bad { color: var(--err); }
 dialog:has(.prompt-text) { width: min(760px, 92vw); }
 dialog h4 { margin: 14px 0 6px; font-size: 13px; }
+dialog h4:has(+ .env-vars) { margin: 20px 0 12px; }
+.env-vars > button.add { margin-top: 8px; }
+.env-vars + .hint { margin-top: 14px; margin-bottom: 12px; }
 dialog .row { align-items: flex-end; }
 dialog .row input[type=text], dialog .row select { flex: 1; }
 dialog .actions { display: flex; gap: 8px; justify-content: center; margin-top: 14px; }

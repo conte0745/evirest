@@ -20,7 +20,8 @@
               "k": "password",
               "v": ""
             }
-          ]
+          ],
+          "color": "#0f766e"
         },
         {
           "id": "stg",
@@ -35,7 +36,8 @@
               "k": "password",
               "v": ""
             }
-          ]
+          ],
+          "color": "#2563eb"
         }
       ],
       "requests": [
@@ -43,7 +45,7 @@
           "id": "users-list",
           "name": "ユーザー一覧（2ページ目）",
           "method": "GET",
-          "url": "/users?page=2&limit=20",
+          "url": "/tenants/${tenantId}/users?page=${page}&limit=${limit}",
           "headers": [
             {
               "k": "Accept",
@@ -70,6 +72,25 @@
               "op": "lt",
               "value": "1000"
             }
+          ],
+          "package": "ユーザー",
+          "subpackage": "一覧",
+          "batchSelected": true,
+          "pathParams": [
+            {
+              "k": "tenantId",
+              "v": "demo-tenant"
+            }
+          ],
+          "params": [
+            {
+              "k": "page",
+              "v": "2"
+            },
+            {
+              "k": "limit",
+              "v": "20"
+            }
           ]
         },
         {
@@ -95,7 +116,10 @@
               "op": "contains",
               "value": "application/json"
             }
-          ]
+          ],
+          "package": "ユーザー",
+          "subpackage": "登録",
+          "batchSelected": false
         },
         {
           "id": "login",
@@ -112,7 +136,10 @@
               "k": "password",
               "v": "${password}"
             }
-          ]
+          ],
+          "package": "認証",
+          "subpackage": "",
+          "batchSelected": false
         }
       ]
     }

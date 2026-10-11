@@ -15,12 +15,25 @@ function fmtSize(n) {
 
 function blankReq() {
   return {
-    id: null, name: '', method: 'GET', url: '',
-    params: [], headers: [],
+    id: null, name: '', package: '', subpackage: '', method: 'GET', url: '',
+    params: [], pathParams: [], headers: [], batchSelected: false,
     bodyType: 'none', body: '', form: [],
     auth: { type: 'none', user: '', pass: '', token: '' },
     asserts: [],
   };
+}
+
+function groupRequests(requests) {
+  const packages = new Map();
+  for (const request of requests) {
+    const name = String(request.package || '').trim();
+    const subname = String(request.subpackage || '').trim();
+    if (!packages.has(name)) packages.set(name, new Map());
+    const subs = packages.get(name);
+    if (!subs.has(subname)) subs.set(subname, []);
+    subs.get(subname).push(request);
+  }
+  return [...packages].map(([name, subs]) => ({ name, subgroups: [...subs].map(([name, requests]) => ({ name, requests })) }));
 }
 
 /* ---------- URL とクエリ ---------- */
@@ -42,6 +55,36 @@ function queryRows(url) {
     const i = p.indexOf('=');
     return { on: true, k: dec(i >= 0 ? p.slice(0, i) : p), v: dec(i >= 0 ? p.slice(i + 1) : '') };
   }) : [];
+}
+
+// URL内のクエリはテンプレート、具体的な入力値は params に保持する。
+function queryTemplateUrl(url, rows) {
+  const { base, hash } = splitUrl(url);
+  const query = rows.filter((p) => p.on && p.k).map((p) =>
+    enc(p.k) + (p.v !== '' ? '=${' + p.k + '}' : '')).join('&');
+  return base + (query ? '?' + query : '') + hash;
+}
+function syncQueryRows(url, rows = []) {
+  const available = rows.filter((p) => p.on).slice();
+  const enabled = queryRows(url).map((p) => {
+    const i = available.findIndex((x) => x.k === p.k);
+    const old = i >= 0 ? available.splice(i, 1)[0] : null;
+    return p.v === '${' + p.k + '}' && old ? { ...p, v: old.v } : p;
+  });
+  return [...enabled, ...rows.filter((p) => !p.on)];
+}
+
+// パスでは {名前} と ${名前} の両方を扱う。
+function pathTemplate(url, replace) {
+  const { base, query, hash } = splitUrl(url);
+  const authority = base.match(/^[a-z][a-z0-9+.-]*:\/\/[^/]*/i)?.[0] || '';
+  const path = base.slice(authority.length).replace(/\$?\{([^{}\/]+)\}/g, replace);
+  return authority + path + (query ? '?' + query : '') + hash;
+}
+function pathParamNames(url) {
+  const names = new Set();
+  pathTemplate(url, (match, name) => { names.add(name); return match; });
+  return [...names];
 }
 
 /* ---------- 環境と送信先 ---------- */
@@ -79,7 +122,25 @@ function b64(s) {
 // env は送信先の環境（なければ undefined）
 function buildRequest(r, env) {
   const vars = varsOf(env);
-  let url = sub(r.url, vars).trim();
+  const pathValues = new Map((r.pathParams || []).filter((x) => x.on && x.k.trim() && x.v !== '').map((x) => [x.k.trim(), x.v]));
+  let url = pathTemplate(r.url.trim(), (match, name) => {
+    if (!pathValues.has(name.trim())) return match;
+    const value = sub(pathValues.get(name.trim()), vars);
+    // 未定義の環境変数をエンコードで隠さず、送信前の検出に残す。
+    return /\$\{[^}]+\}/.test(value) ? value : encodeURIComponent(value);
+  });
+  const parts = splitUrl(url);
+  const queryValues = (r.params || []).filter((p) => p.on && p.k);
+  const query = parts.query.split('&').map((part) => {
+    const i = part.indexOf('=');
+    if (i < 0) return part;
+    const key = dec(part.slice(0, i));
+    const rowIndex = queryValues.findIndex((p) => p.k === key);
+    const row = rowIndex >= 0 ? queryValues.splice(rowIndex, 1)[0] : null;
+    if (!row || dec(part.slice(i + 1)) !== '${' + key + '}') return part;
+    return part.slice(0, i + 1) + enc(sub(row.v, vars));
+  }).join('&');
+  url = sub(parts.base + (query ? '?' + query : '') + parts.hash, vars);
   const base = envBaseUrl(env, vars);
   if (base && !ABS.test(url)) url = joinUrl(base, url);
   if (url && !ABS.test(url) && !url.startsWith('/')) url = 'http://' + url;
@@ -161,15 +222,22 @@ function checkAsserts(asserts, res, vars) {
 /* ---------- インポート ---------- */
 // 手書きやAIが作ったファイルでも読めるよう、省略された項目を補う
 const normRows = (a) => (Array.isArray(a) ? a : []).map((x) => ({ on: x.on !== false, k: String(x.k ?? ''), v: String(x.v ?? '') }));
+const envColor = (color) => /^#[0-9a-f]{6}$/i.test(color || '') ? color : '';
 function normEnv(e) {
-  return { id: uid(), name: String(e.name || '環境'), baseUrl: String(e.baseUrl ?? ''), port: String(e.port ?? ''), vars: normRows(e.vars) };
+  return { id: uid(), name: String(e.name || '環境'), baseUrl: String(e.baseUrl ?? ''), port: String(e.port ?? ''), color: envColor(e.color), vars: normRows(e.vars) };
 }
+const batchSelectedOf = (r) => typeof r.batchSelected === 'boolean' ? r.batchSelected : r.recordEvidence === true;
 function normReq(r) {
   const q = Object.assign(blankReq(), r, { id: uid() });
   q.url = String(q.url ?? '');
+  q.package = String(q.package ?? '').trim();
+  q.subpackage = String(q.subpackage ?? '').trim();
+  q.batchSelected = batchSelectedOf(r);
+  delete q.recordEvidence;
   q.headers = normRows(q.headers);
+  q.pathParams = normRows(q.pathParams);
   q.form = normRows(q.form);
-  q.params = [...queryRows(q.url), ...normRows(q.params).filter((x) => !x.on)];
+  q.params = syncQueryRows(q.url, normRows(q.params));
   q.auth = Object.assign(blankReq().auth, q.auth);
   q.asserts = (Array.isArray(q.asserts) ? q.asserts : []).map((a) => ({
     target: a.target in TARGETS ? a.target : 'status', path: String(a.path ?? ''),
@@ -226,6 +294,7 @@ function mergeImport(systems, list) {
       if (e.name != null) cur.name = next.name;
       if (e.baseUrl != null) cur.baseUrl = next.baseUrl;
       if (e.port != null) cur.port = next.port;
+      if (e.color != null) cur.color = next.color;
       // 変数は名前で突き合わせる。値が空のものは、手元で入れた値（トークンなど）を消さないよう既存の値を残す
       for (const v of next.vars) {
         const old = cur.vars.find((x) => x.k === v.k);
@@ -255,60 +324,133 @@ const AI_PROMPT = [
   '# 出力のルール',
   '- 出力はJSONだけにする。説明文は書かず、コードブロック1つにまとめる。',
   '- 書式にない項目は足さない。',
-  '- 階層は「システム ＞ 環境 ＞ リクエスト」。リクエストはシステムに1回だけ書く（同じシステムの全環境で共有される）。',
+  '- 画面の階層は「システム ＞ 環境 ＞ パッケージ ＞ サブパッケージ ＞ リクエスト」。JSONでは分類名をリクエストの package・subpackage に書く。リクエストはシステムに1回だけ書く（同じシステムの全環境で共有される）。',
   '- システム・環境・リクエストには、それぞれ id を付ける（半角英数字とハイフン。例: crm / stg / users-list）。システムの id は全体で、環境とリクエストの id はシステムの中で重複させない。',
   '- 取り込み時に、同じ id のものは更新され、ない id のものは追加される。修正版を出すときは、前回と同じ id を使う。依頼に既存の id が書かれていれば、それをそのまま使う。',
   '- リクエストの url はドメインを含めず、パスだけを書く（例: /users?page=2）。ドメインは環境の baseUrl に、ポート番号は port に書く。',
-  '- クエリは url の中に書く（?page=2&limit=20）。',
+  '- クエリは url に ?page=${page}&limit=${limit} のように書き、params に名前と値を入れる。従来の ?page=2&limit=20 も取り込める。',
+  '- パスは /users/${id} と書き、pathParams に { "k": "id", "v": "値" } を入れる。{id} の記法も使える。',
+  '- package・subpackage は分類名の文字列。未指定なら空文字。requests は入れ子にしない。',
+  '- 環境の color は #0f766e のような6桁の色、または標準色を使う空文字。',
+  '- batchSelected は一括実行の対象かを表す真偽値。依頼がなければ false。選択したリクエストだけを実行し、その結果はすべてエビデンスに保存する。',
   '- トークンやパスワードなどの秘密の値は書かない。${token} のような変数にして、各環境の vars に値が空の変数として入れる。',
   '- body と、asserts の value、port は、必ず文字列で書く（数値やオブジェクトにしない）。',
   '- 各リクエストに、ステータスコードのアサーションを少なくとも1つ付ける。',
   '- 依頼に書かれていない値は推測で埋めず、空にするか省略する。',
   '',
   '# 書式',
-  '```json',
-  '{',
-  '  "app": "evirest",',
-  '  "version": 2,',
-  '  "systems": [',
-  '    {',
-  '      "id": "crm",',
-  '      "name": "システム名",',
-  '      "envs": [',
-  '        { "id": "local", "name": "ローカル", "baseUrl": "http://localhost", "port": "8080", "vars": [{ "k": "token", "v": "" }] },',
-  '        { "id": "stg", "name": "検証", "baseUrl": "https://stg.example.com", "vars": [{ "k": "token", "v": "" }] }',
-  '      ],',
-  '      "requests": [',
-  '        {',
-  '          "id": "users-list",',
-  '          "name": "ユーザー一覧",',
-  '          "method": "GET",',
-  '          "url": "/users?page=2&limit=20",',
-  '          "headers": [{ "k": "Accept", "v": "application/json" }],',
-  '          "auth": { "type": "bearer", "token": "${token}" },',
-  '          "asserts": [',
-  '            { "target": "status", "op": "eq", "value": "200" },',
-  '            { "target": "json", "path": "items[0].id", "op": "exists" }',
-  '          ]',
-  '        },',
-  '        {',
-  '          "id": "users-create",',
-  '          "name": "ユーザー登録",',
-  '          "method": "POST",',
-  '          "url": "/users",',
-  '          "bodyType": "json",',
-  '          "body": "{\\n  \\"name\\": \\"山田太郎\\"\\n}",',
-  '          "asserts": [{ "target": "status", "op": "eq", "value": "201" }]',
-  '        }',
-  '      ]',
-  '    }',
-  '  ]',
-  '}',
-  '```',
+  "```json",
+  "{",
+  "  \"app\": \"evirest\",",
+  "  \"version\": 2,",
+  "  \"systems\": [",
+  "    {",
+  "      \"id\": \"crm\",",
+  "      \"name\": \"システム名\",",
+  "      \"envs\": [",
+  "        {",
+  "          \"id\": \"local\",",
+  "          \"name\": \"ローカル\",",
+  "          \"baseUrl\": \"http://localhost\",",
+  "          \"port\": \"8080\",",
+  "          \"vars\": [",
+  "            {",
+  "              \"k\": \"token\",",
+  "              \"v\": \"\"",
+  "            }",
+  "          ],",
+  "          \"color\": \"#0f766e\"",
+  "        },",
+  "        {",
+  "          \"id\": \"stg\",",
+  "          \"name\": \"検証\",",
+  "          \"baseUrl\": \"https://stg.example.com\",",
+  "          \"vars\": [",
+  "            {",
+  "              \"k\": \"token\",",
+  "              \"v\": \"\"",
+  "            }",
+  "          ],",
+  "          \"color\": \"#2563eb\"",
+  "        }",
+  "      ],",
+  "      \"requests\": [",
+  "        {",
+  "          \"id\": \"users-list\",",
+  "          \"name\": \"ユーザー一覧\",",
+  "          \"method\": \"GET\",",
+  "          \"url\": \"/tenants/${tenantId}/users?page=${page}&limit=${limit}\",",
+  "          \"headers\": [",
+  "            {",
+  "              \"k\": \"Accept\",",
+  "              \"v\": \"application/json\"",
+  "            }",
+  "          ],",
+  "          \"auth\": {",
+  "            \"type\": \"bearer\",",
+  "            \"token\": \"${token}\"",
+  "          },",
+  "          \"asserts\": [",
+  "            {",
+  "              \"target\": \"status\",",
+  "              \"op\": \"eq\",",
+  "              \"value\": \"200\"",
+  "            },",
+  "            {",
+  "              \"target\": \"json\",",
+  "              \"path\": \"items[0].id\",",
+  "              \"op\": \"exists\"",
+  "            }",
+  "          ],",
+  "          \"package\": \"ユーザー\",",
+  "          \"subpackage\": \"一覧\",",
+  "          \"batchSelected\": true,",
+  "          \"pathParams\": [",
+  "            {",
+  "              \"k\": \"tenantId\",",
+  "              \"v\": \"demo-tenant\"",
+  "            }",
+  "          ],",
+  "          \"params\": [",
+  "            {",
+  "              \"k\": \"page\",",
+  "              \"v\": \"2\"",
+  "            },",
+  "            {",
+  "              \"k\": \"limit\",",
+  "              \"v\": \"20\"",
+  "            }",
+  "          ]",
+  "        },",
+  "        {",
+  "          \"id\": \"users-create\",",
+  "          \"name\": \"ユーザー登録\",",
+  "          \"method\": \"POST\",",
+  "          \"url\": \"/users\",",
+  "          \"bodyType\": \"json\",",
+  "          \"body\": \"{\\n  \\\"name\\\": \\\"山田太郎\\\"\\n}\",",
+  "          \"asserts\": [",
+  "            {",
+  "              \"target\": \"status\",",
+  "              \"op\": \"eq\",",
+  "              \"value\": \"201\"",
+  "            }",
+  "          ],",
+  "          \"package\": \"ユーザー\",",
+  "          \"subpackage\": \"登録\",",
+  "          \"batchSelected\": false",
+  "        }",
+  "      ]",
+  "    }",
+  "  ]",
+  "}",
+  "```",
   '',
   '# 各項目に書ける値',
-  '- method: GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS',
-  '- headers: { "k": 名前, "v": 値 } の配列',
+  '- method: GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS / QUERY',
+  '- params・pathParams・headers: { "k": 名前, "v": 値 } の配列',
+  '- params・pathParams・headers・form・vars の行は on を省略すると有効。on: false で無効。値 v は文字列で書く。',
+  '- ${id} はパス欄の値を優先し、空欄・無効なら環境変数 id を使う。{id} はパス欄の値が必要。',
   '- bodyType: none / json / text / form（省略時は none）',
   '  - json・text のときは body に本文を文字列で書く',
   '  - form のときは form に { "k": 名前, "v": 値 } の配列を書く',
@@ -465,6 +607,6 @@ function evidenceSheets(list, masked) {
 // Node.js のテスト用
 if (typeof module === 'object') {
   module.exports = {
-    uid, clone, fmtSize, blankReq, splitUrl, dec, enc, queryRows, varsOf, sub, ABS, envBase, envBaseUrl, joinUrl, b64, buildRequest, TARGETS, OPS, jsonPath, evalAssert, checkAsserts, normRows, normEnv, normReq, systemsFromV1, parseImport, mergeImport, AI_PROMPT, EV_MAX, SENSITIVE, esc, fmtTime, evidenceHtml, XL_LINE, XL_CELL, xlText, xlBodyRows, evidenceSheets,
+    uid, clone, fmtSize, blankReq, groupRequests, splitUrl, dec, enc, queryRows, queryTemplateUrl, syncQueryRows, pathParamNames, varsOf, sub, ABS, envBase, envBaseUrl, joinUrl, b64, buildRequest, TARGETS, OPS, jsonPath, evalAssert, checkAsserts, normRows, batchSelectedOf, envColor, normEnv, normReq, systemsFromV1, parseImport, mergeImport, AI_PROMPT, EV_MAX, SENSITIVE, esc, fmtTime, evidenceHtml, XL_LINE, XL_CELL, xlText, xlBodyRows, evidenceSheets,
   };
 }
