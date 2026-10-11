@@ -12,6 +12,7 @@
     "zip": "pnpm vendor && pnpm check && pnpm test && mkdir -p dist && V=$(node -p \"require('./manifest.json').version\") && rm -f dist/evirest-$V.zip && zip -r -X dist/evirest-$V.zip manifest.json background.js app.html app.css core.js app.js icons vendor -x '*.DS_Store' && echo dist/evirest-$V.zip"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.0",
     "write-excel-file": "4.1.1"
   }
 }

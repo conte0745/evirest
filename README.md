@@ -161,6 +161,9 @@ pnpm test
 - エビデンス出力の伏せ字はヘッダーのみ対象。ボディ内の機密情報はそのまま出力される
 
 ## リリース
+
+ストア掲載文・権限説明・公開手順は [Chrome Web Store 公開ガイド](docs/publishing/chrome-web-store.md) を参照。公開用の [プライバシーポリシー](docs/publishing/privacy-policy.md) も用意している。運営者・問い合わせ先の設定と、ポリシーのHTTPS公開は提出前に必要。
+
 1. `manifest.json` の `version` を上げる（`package.json` の `version` も合わせる）
 2. `pnpm zip` を実行する（ライブラリの同梱、構文チェック、テストの後、`dist/evirest-<version>.zip` を作成）
 3. できたZIPをChromeウェブストアにアップロードする
