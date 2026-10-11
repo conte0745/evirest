@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EviREST - プライバシーポリシー</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --muted: #64748b;
+      --border: #e2e8f0;
+      --primary: #2563eb;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f172a;
+        --card-bg: #1e293b;
+        --text: #f1f5f9;
+        --muted: #94a3b8;
+        --border: #334155;
+        --primary: #3b82f6;
+      }
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.7;
+      color: var(--text);
+      background-color: var(--bg);
+      margin: 0;
+      padding: 2rem 1rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: var(--card-bg);
+      padding: 2.5rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+    h1 {
+      font-size: 1.75rem;
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+      border-bottom: 2px solid var(--primary);
+      padding-bottom: 0.5rem;
+    }
+    .date {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+    h2 {
+      font-size: 1.25rem;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+      color: var(--text);
+    }
+    p, li {
+      font-size: 0.975rem;
+    }
+    ul {
+      padding-left: 1.5rem;
+    }
+    li {
+      margin-bottom: 0.5rem;
+    }
+    .contact-box {
+      margin-top: 2rem;
+      padding: 1.25rem;
+      background: var(--bg);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+    .contact-box p {
+      margin: 0.25rem 0;
+    }
+    a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>EviREST プライバシーポリシー</h1>
+    <div class="date">最終更新日：2026年10月12日</div>
+
+    <h2>1. データの利用目的</h2>
+    <p>
+      EviREST は、利用者が指定したHTTP/REST APIへのリクエスト送信、レスポンスの検証、テスト結果の記録と出力を行うChrome拡張機能です。
+    </p>
+    <p>
+      リクエスト、送信先、認証情報、レスポンスは、この機能を提供するためにのみ処理します。広告配信、利用者の追跡、データ販売には一切使用しません。
+    </p>
+
+    <h2>2. ブラウザ内に保存するデータ</h2>
+    <p>
+      システム・環境の設定、リクエスト、環境変数、トークンやパスワードなどの認証情報、送信履歴、エビデンスと実施者名・備考を、利用者のブラウザ内（Local Storage / Chrome Storage）に保存します。送信履歴にはリクエスト内容を保存し、エビデンスにはリクエスト・レスポンスの内容を記録します。
+    </p>
+    <p>
+      開発者のサーバーへの送信やクラウド同期は一切行いません。独自の暗号化やパスワードによる保護は行っていないため、機密情報を入力する場合はPCとブラウザのアクセス管理にご注意ください。
+    </p>
+
+    <h2>3. 通信先</h2>
+    <p>
+      送信操作を行うと、URL、ヘッダー、認証情報、ボディを、利用者が明示的に指定したAPIへ送信します。リダイレクトがある場合はブラウザの通信処理に従って移動先へ接続します。API側でのデータの扱いは、その送信先の方針に従います。
+    </p>
+    <p>
+      拡張機能から開発者へのアクセス解析・利用状況・エラー情報の送信は行いません。閲覧中のWebページやブラウザの閲覧履歴を収集する機能はありません。
+    </p>
+
+    <h2>4. ファイルとクリップボード</h2>
+    <p>
+      インポートでは、利用者が選択したJSONファイルや貼り付けた内容を読み込みます。エクスポートでは、設定やテスト結果を利用者の操作でファイルに保存、またはHTMLレポートとして別タブに表示します。
+    </p>
+    <p>
+      コピー操作では、利用者が選択したcURLコマンド、レスポンス本文、AI用プロンプトをクリップボードへ書き込みます。クリップボードを自動で読み取る機能はありません。AI用プロンプトを外部AIサービスへ自動送信する機能もありません。
+    </p>
+    <p>
+      エクスポートした設定には認証情報が含まれる場合があります。レポートの伏せ字は認証情報を含むヘッダー値が対象で、URLや本文の機密情報は自動で除去しません。外部と共有する前に内容をご確認ください。
+    </p>
+
+    <h2>5. データの保持と削除</h2>
+    <p>
+      保存データは、利用者が削除するまでブラウザ内に保持されます。履歴やエビデンスは画面から随時削除できます。
+    </p>
+    <p>
+      拡張機能をアンインストールすると、拡張機能に関連するブラウザ内保存データもすべて削除されます。エクスポート済みのファイルや、API側に送信済みのデータは削除されません。
+    </p>
+
+    <h2>6. 第三者への提供</h2>
+    <p>
+      開発者によるユーザーデータの第三者への販売、広告目的の提供は一切行いません。
+    </p>
+    <p>
+      EviREST のユーザーデータの利用は、Limited Use（限定使用）の要件を含むChrome Web Store User Data Policyに厳格に従います。
+    </p>
+
+    <h2>7. ポリシーの変更と問い合わせ</h2>
+    <p>
+      機能やデータの扱いを変更する場合は、本ページを更新します。
+    </p>
+
+    <div class="contact-box">
+      <p><strong>運営者：</strong> EviREST プロジェクト</p>
+      <p><strong>連絡先 / 問い合わせ先：</strong> <a href="mailto:evi-rest@shiftonton.net">evi-rest@shiftonton.net</a></p>
+    </div>
+  </div>
+</body>
+</html>
