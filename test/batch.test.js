@@ -142,6 +142,7 @@ test('一括実行: 待機中に中止すると、待ち時間を残さず終わ
 test('実行間隔: 選べる値以外は1秒にする（間隔なしにはできない）', () => {
   assert.equal(core.batchIntervalOf(2000), 2000);
   assert.equal(core.batchIntervalOf('500'), 500);
+  assert.equal(core.batchIntervalOf(200), 200);
   for (const v of [0, -1, 100, undefined, null, 'x']) assert.equal(core.batchIntervalOf(v), 1000);
-  assert.ok(Math.min(...core.BATCH_INTERVALS) >= 500);
+  assert.ok(Math.min(...core.BATCH_INTERVALS) >= 200);
 });

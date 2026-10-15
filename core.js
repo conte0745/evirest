@@ -227,7 +227,7 @@ function normEnv(e) {
   return { id: uid(), name: String(e.name || '環境'), baseUrl: String(e.baseUrl ?? ''), port: String(e.port ?? ''), color: envColor(e.color), vars: normRows(e.vars) };
 }
 // 一括実行で、1件終わってから次を送るまでの待ち時間（ミリ秒）。送信先に負荷をかけないよう、間隔なしは選べない
-const BATCH_INTERVALS = [500, 1000, 2000, 5000, 10000];
+const BATCH_INTERVALS = [200, 500, 1000, 2000, 5000, 10000];
 const batchIntervalOf = (v) => (BATCH_INTERVALS.includes(Number(v)) ? Number(v) : 1000);
 const batchSelectedOf = (r) => typeof r.batchSelected === 'boolean' ? r.batchSelected : r.recordEvidence === true;
 function normReq(r) {
