@@ -15,6 +15,7 @@ HTTP/REST APIの送信・検証と、テストエビデンスの出力ができ�
 - ヘッダー: 表形式で編集、行ごとに有効・無効を切り替えられる
 - ボディ: JSON（整形ボタンあり）、テキスト、フォーム（urlencoded）
 - 認証: Basic、Bearer トークン
+- 「ブラウザのCookieを送る」をオンにしたリクエストだけ、このChromeに保存された送信先のCookieを付けて送る（初期値はオフ）。ログイン中のセッションでAPIを試せる。cURLのコピーにはCookieを含めない。インポートしたリクエストは、ファイルの内容にかかわらずオフになる（受け取ったファイルでCookie付きのリクエストを送らせないため）
 - 送信の中止、`Ctrl / ⌘ + Enter` での送信
 - CORSの制約を受けない（拡張機能の権限で送信するため、`localhost` や社内APIにもそのまま届く）
 
@@ -83,7 +84,7 @@ Postman、Insomnia、Talend API Tester、Thunder Client、Hoppscotch などの�
 - ファイルアップロード（multipart/form-data）、バイナリのボディ
 - GraphQL、WebSocket、gRPC、Server-Sent Events、SOAP
 - OAuth 2.0、Digest、AWS署名、NTLM などの認証（APIキーはヘッダーに手で書けば送れる）
-- Cookieの自動保存と送信（Cookieは常に送らない設定で送信している）
+- Cookieの値を画面で指定して送る（ブラウザに保存されたCookieを送ることだけできる）
 - リダイレクトを追わない設定、途中のリダイレクト応答の確認（常に最終応答まで追う）
 - タイムアウト時間の指定
 - プロキシ、クライアント証明書（mTLS）、自己署名証明書の検証スキップ

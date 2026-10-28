@@ -27,7 +27,7 @@ function blankReq() {
     id: null, name: '', package: '', subpackage: '', method: 'GET', url: '',
     params: [], pathParams: [], headers: [], batchSelected: false,
     bodyType: 'none', body: '', form: [],
-    auth: { type: 'none', user: '', pass: '', token: '' },
+    auth: { type: 'none', user: '', pass: '', token: '', cookies: false },
     asserts: [],
   };
 }
@@ -179,7 +179,9 @@ function buildRequest(r, env) {
       if (!has('content-type')) headers.push(['Content-Type', 'application/x-www-form-urlencoded;charset=UTF-8']);
     }
   }
-  return { method: r.method, url, headers, body };
+  // ブラウザに保存された送信先のCookieは、明示的にオンにしたリクエストだけ送る
+  const credentials = r.auth.cookies === true ? 'include' : 'omit';
+  return { method: r.method, url, headers, body, credentials };
 }
 
 /* ---------- アサーション ---------- */
@@ -251,6 +253,8 @@ function normReq(r) {
   q.form = normRows(q.form);
   q.params = syncQueryRows(q.url, normRows(q.params));
   q.auth = Object.assign(blankReq().auth, q.auth);
+  // 他人から受け取ったファイルで、ログイン中のCookie付きリクエストを送らせないよう、取り込み時は常にオフにする
+  q.auth.cookies = false;
   q.asserts = (Array.isArray(q.asserts) ? q.asserts : []).map((a) => ({
     target: a.target in TARGETS ? a.target : 'status', path: String(a.path ?? ''),
     op: a.op in OPS ? a.op : 'eq', value: String(a.value ?? ''),

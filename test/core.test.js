@@ -80,6 +80,15 @@ test('buildRequest: URL欄が絶対URLならベースURLを使わない', () => 
   assert.equal(core.buildRequest(reqOf({ url: 'https://other.example.com/x' }), env('https://stg.example.com')).url, 'https://other.example.com/x');
 });
 
+test('buildRequest: Cookieはオンにしたリクエストだけ送る', () => {
+  const credentials = (auth) => core.buildRequest(reqOf({ url: '/x', auth: Object.assign(core.blankReq().auth, auth) }), env('https://stg.example.com')).credentials;
+  assert.equal(credentials({}), 'omit');
+  assert.equal(credentials({ cookies: true }), 'include');
+  assert.equal(credentials({ cookies: 'true' }), 'omit', '真偽値の true 以外は送らない');
+  assert.equal(core.normReq({ url: '/x', auth: { type: 'bearer', token: 't' } }).auth.cookies, false, '旧データは送らない設定になる');
+  assert.equal(core.normReq({ url: '/x', auth: { type: 'none', cookies: true } }).auth.cookies, false, 'インポートではオンにできない');
+});
+
 test('buildRequest: 環境がないとき', () => {
   assert.equal(core.buildRequest(reqOf({ url: 'example.com/x' }), undefined).url, 'http://example.com/x');
   assert.equal(core.buildRequest(reqOf({ url: '/users' }), undefined).url, '/users', '送信先が決まらない（送信側で止める）');
@@ -197,7 +206,7 @@ test('インポート: 省略された項目を補い、不正な値を直す', 
   assert.equal(systems[0].name, 'インポート');
   assert.equal(r.method, 'GET');
   assert.deepEqual(r.headers, [kv('X', '1')]);
-  assert.deepEqual(r.auth, { type: 'bearer', user: '', pass: '', token: '' });
+  assert.deepEqual(r.auth, { type: 'bearer', user: '', pass: '', token: '', cookies: false });
   assert.deepEqual(r.asserts, [{ target: 'status', path: '', op: 'eq', value: '200' }]);
   assert.ok(systems[0].id && r.id, 'id がなければ採番する');
 });

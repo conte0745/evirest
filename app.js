@@ -147,7 +147,7 @@ async function send(fromBatch = false) {
   try {
     const res = await fetch(b.url, {
       method: b.method, headers: b.headers, body: b.body,
-      signal: ctrl.signal, cache: 'no-store', credentials: 'omit', redirect: 'follow',
+      signal: ctrl.signal, cache: 'no-store', credentials: b.credentials, redirect: 'follow',
     });
     const buf = await res.arrayBuffer();
     const ms = Math.round(performance.now() - t0);
@@ -459,6 +459,7 @@ function syncUI() {
   $('#authUser').value = req.auth.user;
   $('#authPass').value = req.auth.pass;
   $('#authToken').value = req.auth.token;
+  $('#authCookies').checked = req.auth.cookies === true;
   renderAuthMode();
   renderAsserts();
 }
@@ -1105,6 +1106,7 @@ function bind() {
   $('#authUser').addEventListener('input', (e) => { req.auth.user = e.target.value; persist(); });
   $('#authPass').addEventListener('input', (e) => { req.auth.pass = e.target.value; persist(); });
   $('#authToken').addEventListener('input', (e) => { req.auth.token = e.target.value; persist(); });
+  $('#authCookies').addEventListener('change', (e) => { req.auth.cookies = e.target.checked; persist(); });
 
   $('#base').addEventListener('click', () => { if (curSystem() && curEnv()) editEnvDialog(curSystem(), curEnv()); });
   $('#dlg').addEventListener('close', () => { renderSaved(); renderBase(); });

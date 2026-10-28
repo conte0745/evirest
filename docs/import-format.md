@@ -134,6 +134,8 @@ AI（Claude など）や手作業でこのファイルを作れば、URL・ク�
 
 `type` は `none` `basic` `bearer` のどれか。APIキーなど他の方式は `headers` に直接書く。
 
+「ブラウザのCookieを送る」の設定は取り込まない。ファイルに `"cookies": true` があっても、インポートしたリクエストはCookieを送らない設定になる。必要なら画面の「認証」タブでオンにする。
+
 ## アサーション（`asserts[]`）
 
 ```json
