@@ -13,6 +13,15 @@ function fmtSize(n) {
   return (n / 1024 / 1024).toFixed(2) + ' MB';
 }
 
+// ダウンロードされるファイル（attachment 指定、または CSV・TSV）なら行数を返す。それ以外とバイナリは null
+function fileLines(ct, disposition, text) {
+  const isFile = /^\s*attachment/i.test(disposition || '') || /^text\/(csv|tab-separated-values)\b/i.test(ct || '');
+  if (!isFile || text.includes('\0')) return null;
+  if (!text) return 0;
+  const lines = text.split(/\r\n|\r|\n/);
+  return lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
+}
+
 function blankReq() {
   return {
     id: null, name: '', package: '', subpackage: '', method: 'GET', url: '',
@@ -610,6 +619,6 @@ function evidenceSheets(list, masked) {
 // Node.js のテスト用
 if (typeof module === 'object') {
   module.exports = {
-    uid, clone, fmtSize, blankReq, groupRequests, splitUrl, dec, enc, queryRows, queryTemplateUrl, syncQueryRows, pathParamNames, varsOf, sub, ABS, envBase, envBaseUrl, joinUrl, b64, buildRequest, TARGETS, OPS, jsonPath, evalAssert, checkAsserts, normRows, BATCH_INTERVALS, batchIntervalOf, batchSelectedOf, envColor, normEnv, normReq, systemsFromV1, parseImport, mergeImport, AI_PROMPT, EV_MAX, SENSITIVE, esc, fmtTime, evidenceHtml, XL_LINE, XL_CELL, xlText, xlBodyRows, evidenceSheets,
+    uid, clone, fmtSize, fileLines, blankReq, groupRequests, splitUrl, dec, enc, queryRows, queryTemplateUrl, syncQueryRows, pathParamNames, varsOf, sub, ABS, envBase, envBaseUrl, joinUrl, b64, buildRequest, TARGETS, OPS, jsonPath, evalAssert, checkAsserts, normRows, BATCH_INTERVALS, batchIntervalOf, batchSelectedOf, envColor, normEnv, normReq, systemsFromV1, parseImport, mergeImport, AI_PROMPT, EV_MAX, SENSITIVE, esc, fmtTime, evidenceHtml, XL_LINE, XL_CELL, xlText, xlBodyRows, evidenceSheets,
   };
 }

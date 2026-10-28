@@ -1,6 +1,8 @@
 # EviREST
 
 HTTP/REST APIの送信・検証と、テストエビデンスの出力ができるChrome拡張機能（Manifest V3）。
+
+[Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/evirest-api-tester/edocmaemplpnhjpfnoenibkoopfndgaa)
 ビルド工程なし。外部ライブラリはExcel出力用の1つだけで、拡張機能に同梱している。
 
 ## できること
@@ -19,6 +21,7 @@ HTTP/REST APIの送信・検証と、テストエビデンスの出力ができ�
 ### レスポンス
 - ステータス、応答時間、サイズ、ヘッダー一覧、送信した時点のURL
 - JSONは自動で整形表示、画像はプレビュー表示
+- ダウンロードされるファイル（`Content-Disposition: attachment`、またはCSV・TSV）は、サイズの横に行数を表示する。末尾の改行は1行に数えない。バイナリは対象外
 - ボディのコピー
 
 ### アサーション
@@ -145,7 +148,7 @@ Postman、Insomnia、Talend API Tester、Thunder Client、Hoppscotch などの�
 | `icons/` | 拡張機能およびストア用アイコン |
 | `vendor/` | 同梱ライブラリ（Excel出力用）。`pnpm install` で生成され、Gitには入れない |
 | `scripts/vendor.mjs` | `node_modules` から `vendor/` へライブラリをコピーするスクリプト |
-| `docs/` | GitHub Pages公開用ページ（使い方・プライバシーポリシー）および仕様・公開用ドキュメント |
+| `docs/` | GitHub Pages公開用ページ（LP・使い方・プライバシーポリシー・画像）および仕様・公開用ドキュメント |
 | `LICENSE` | MIT ライセンス |
 
 ## テスト
@@ -166,7 +169,9 @@ pnpm test
 ## 公開ドキュメント・Webサイト
 GitHub Pages（カスタムドメイン: `evirest.shiftonton.net`）にて公開しています。
 
-- **Webサイト / 使い方ガイド**: [https://evirest.shiftonton.net/](https://evirest.shiftonton.net/)
+- **Chrome ウェブストア**: [https://chromewebstore.google.com/detail/evirest-api-tester/edocmaemplpnhjpfnoenibkoopfndgaa](https://chromewebstore.google.com/detail/evirest-api-tester/edocmaemplpnhjpfnoenibkoopfndgaa)
+- **Webサイト（LP）**: [https://evirest.shiftonton.net/](https://evirest.shiftonton.net/)
+- **使い方ガイド・サポート**: [https://evirest.shiftonton.net/guide.html](https://evirest.shiftonton.net/guide.html)
 - **プライバシーポリシー**: [https://evirest.shiftonton.net/privacy-policy.html](https://evirest.shiftonton.net/privacy-policy.html)
 - **インポートファイル仕様**: [docs/import-format.md](docs/import-format.md)
 

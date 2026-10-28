@@ -154,12 +154,13 @@ async function send(fromBatch = false) {
     const ct = res.headers.get('content-type') || '';
     last = {
       ok: true, status: res.status, statusText: res.statusText, ms, size: buf.byteLength,
-      headers: [...res.headers], ct, url: res.url, text: '', json: undefined, image: null,
+      headers: [...res.headers], ct, url: res.url, text: '', json: undefined, image: null, lines: null,
     };
     if (/^image\//i.test(ct)) {
       last.image = URL.createObjectURL(new Blob([buf], { type: ct }));
     } else {
       last.text = new TextDecoder().decode(buf);
+      last.lines = fileLines(ct, res.headers.get('content-disposition'), last.text);
       try { last.json = JSON.parse(last.text); } catch { /* JSONではない */ }
     }
   } catch (e) {
@@ -341,7 +342,9 @@ function renderResponse() {
   showRequestUrl(r.req.url);
   if (r.ok) setStatus(`${r.status} ${r.statusText}`.trim(), 's' + String(r.status)[0]);
   else setStatus(r.error, 'err');
-  $('#resMeta').textContent = r.ok ? `${r.ms} ms ・ ${fmtSize(r.size)}` : `${r.ms} ms`;
+  $('#resMeta').textContent = r.ok
+    ? `${r.ms} ms ・ ${fmtSize(r.size)}` + (r.lines != null ? ` ・ ${r.lines.toLocaleString()} 行` : '')
+    : `${r.ms} ms`;
 
   const body = $('#res-body');
   if (r.image) {

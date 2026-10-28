@@ -11,6 +11,23 @@ const kv = (k, v, on = true) => ({ on, k, v });
 const env = (baseUrl, port = '', vars = []) => ({ id: 'e', name: '検証', baseUrl, port, vars });
 const reqOf = (over) => Object.assign(core.blankReq(), over);
 
+/* ---------- レスポンス ---------- */
+test('fileLines: ダウンロードされるファイルの行数を数える', () => {
+  const att = 'attachment; filename="users.csv"';
+  assert.equal(core.fileLines('text/csv', '', 'id,name\n1,a\n2,b\n'), 3);
+  assert.equal(core.fileLines('text/csv; charset=utf-8', '', 'id,name\r\n1,a'), 2);
+  assert.equal(core.fileLines('text/tab-separated-values', '', 'a\tb'), 1);
+  assert.equal(core.fileLines('application/octet-stream', att, 'a\rb\r\nc\n\n'), 4);
+  assert.equal(core.fileLines('text/plain', att, ''), 0);
+});
+
+test('fileLines: ファイルでないレスポンスとバイナリは対象外', () => {
+  assert.equal(core.fileLines('application/json', '', '{"a":1}\n'), null);
+  assert.equal(core.fileLines('text/plain', '', 'a\nb'), null);
+  assert.equal(core.fileLines('text/plain', 'inline', 'a\nb'), null);
+  assert.equal(core.fileLines('application/zip', 'attachment', 'PK\u0003\u0004\0\0'), null);
+});
+
 /* ---------- URL とクエリ ---------- */
 test('splitUrl: パス・クエリ・ハッシュに分ける', () => {
   assert.deepEqual(core.splitUrl('/users?a=1&b=2#top'), { base: '/users', query: 'a=1&b=2', hash: '#top' });

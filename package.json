@@ -1,6 +1,6 @@
 {
   "name": "evirest",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "HTTP/REST APIを手軽に送信・検証できるAPIテスター（Chrome拡張機能）",
   "license": "MIT",
   "private": true,
