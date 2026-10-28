@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EviREST - ドキュメント &amp; サポート</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <link rel="alternate icon" type="image/png" href="favicon.png" />
+    <style>
+      :root {
+        --bg: #ffffff;
+        --surface: #f9fafb;
+        --surface-border: #e5e7eb;
+        --text: #111827;
+        --text-sub: #374151;
+        --text-muted: #4b5563;
+        --link: #1d4ed8;
+        --link-hover: #1e40af;
+        --code-bg: #f3f4f6;
+        --code-text: #111827;
+        --accent: #2563eb;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0f172a;
+          --surface: #1e293b;
+          --surface-border: #334155;
+          --text: #f8fafc;
+          --text-sub: #e2e8f0;
+          --text-muted: #cbd5e1;
+          --link: #60a5fa;
+          --link-hover: #93c5fd;
+          --code-bg: #0b1120;
+          --code-text: #f8fafc;
+          --accent: #3b82f6;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Hiragino Sans",
+          "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+        font-size: 16px;
+        line-height: 1.8;
+        color: var(--text);
+        background-color: var(--bg);
+        margin: 0;
+        padding: 0;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrapper {
+        max-width: 840px;
+        margin: 0 auto;
+        padding: 3rem 1.5rem 5rem;
+      }
+      header {
+        border-bottom: 1px solid var(--surface-border);
+        padding-bottom: 2rem;
+        margin-bottom: 3rem;
+      }
+      .brand-line {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+      }
+      .brand-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+      }
+      h1 {
+        font-size: 1.85rem;
+        font-weight: 700;
+        margin: 0;
+        letter-spacing: -0.01em;
+      }
+      .lead {
+        font-size: 1.05rem;
+        color: var(--text-sub);
+        margin: 0.5rem 0 1.5rem;
+      }
+      nav.top-nav {
+        display: flex;
+        gap: 1.25rem;
+        flex-wrap: wrap;
+        font-size: 0.95rem;
+      }
+      nav.top-nav a {
+        color: var(--link);
+        text-decoration: none;
+        font-weight: 500;
+      }
+      nav.top-nav a:hover {
+        text-decoration: underline;
+      }
+      section {
+        margin-bottom: 3.5rem;
+      }
+      h2 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin: 2.5rem 0 1rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid var(--surface-border);
+      }
+      h3 {
+        font-size: 1.15rem;
+        font-weight: 600;
+        margin: 1.75rem 0 0.5rem;
+        color: var(--text);
+      }
+      p {
+        margin: 0.75rem 0;
+        color: var(--text-sub);
+      }
+      ul,
+      ol {
+        margin: 0.75rem 0;
+        padding-left: 1.5rem;
+        color: var(--text-sub);
+      }
+      li {
+        margin-bottom: 0.5rem;
+      }
+      .feature-list {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1rem;
+        margin: 1.5rem 0;
+      }
+      @media (min-width: 640px) {
+        .feature-list {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .feature-item {
+        background: var(--surface);
+        border: 1px solid var(--surface-border);
+        border-radius: 8px;
+        padding: 1.25rem;
+      }
+      .feature-item h4 {
+        margin: 0 0 0.5rem;
+        font-size: 1.05rem;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .feature-item p {
+        margin: 0;
+        font-size: 0.95rem;
+        color: var(--text-sub);
+        line-height: 1.65;
+      }
+      .step-box {
+        background: var(--surface);
+        border: 1px solid var(--surface-border);
+        border-radius: 8px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1rem;
+      }
+      .step-header {
+        font-weight: 600;
+        font-size: 1.05rem;
+        color: var(--text);
+        margin-bottom: 0.4rem;
+      }
+      .step-box p {
+        margin: 0;
+        font-size: 0.95rem;
+        line-height: 1.7;
+      }
+      .step-box ul {
+        margin: 0.5rem 0 0;
+        font-size: 0.95rem;
+      }
+      .faq-block {
+        border-top: 1px solid var(--surface-border);
+        padding: 1.25rem 0;
+      }
+      .faq-q {
+        font-weight: 600;
+        font-size: 1.05rem;
+        color: var(--text);
+        margin-bottom: 0.4rem;
+      }
+      .faq-a {
+        font-size: 0.95rem;
+        color: var(--text-sub);
+        margin: 0;
+        line-height: 1.75;
+      }
+      .info-box {
+        background: var(--surface);
+        border-left: 4px solid var(--accent);
+        border-radius: 0 8px 8px 0;
+        padding: 1.25rem 1.5rem;
+        margin: 1.5rem 0;
+      }
+      .info-box p {
+        margin: 0.35rem 0;
+      }
+      code {
+        font-family:
+          ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo,
+          monospace;
+        font-size: 0.9em;
+        background: var(--code-bg);
+        color: var(--code-text);
+        padding: 0.15rem 0.35rem;
+        border-radius: 4px;
+      }
+      a {
+        color: var(--link);
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      a:hover {
+        color: var(--link-hover);
+      }
+      footer {
+        border-top: 1px solid var(--surface-border);
+        padding-top: 2rem;
+        margin-top: 4rem;
+        font-size: 0.9rem;
+        color: var(--text-muted);
+      }
+      footer a {
+        color: var(--text-muted);
+      }
+      footer a:hover {
+        color: var(--text);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <div class="brand-line">
+          <img src="favicon.svg" alt="EviREST Logo" class="brand-icon" />
+          <h1><a href="./" style="color: inherit; text-decoration: none">EviREST</a></h1>
+        </div>
+        <p class="lead">
+          HTTP/REST APIの送信・検証と、テストエビデンス（HTML /
+          Excel）出力を行うChrome拡張機能
+        </p>
+        <nav class="top-nav">
+          <a href="./">トップ</a>
+          <a href="#features">機能一覧</a>
+          <a href="#guide">基本操作</a>
+          <a href="#faq">よくある質問</a>
+          <a href="#support">サポート窓口</a>
+          <a href="privacy-policy.html">プライバシーポリシー</a>
+          <a href="https://chromewebstore.google.com/detail/evirest-api-tester/edocmaemplpnhjpfnoenibkoopfndgaa">Chrome ウェブストア</a>
+        </nav>
+      </header>
+
+      <!-- 主な機能 -->
+      <section id="features">
+        <h2>機能一覧</h2>
+        <div class="feature-list">
+          <div class="feature-item">
+            <h4>リクエスト送信・編集</h4>
+            <p>
+              GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS /
+              QUERYに対応。クエリ、ヘッダー、JSON・テキスト・フォームのボディを編集でき、cURLコマンドとしてもコピーできます。
+            </p>
+          </div>
+          <div class="feature-item">
+            <h4>CORSの制約を受けない通信</h4>
+            <p>
+              拡張機能の権限で直接通信するため、同一オリジン制約（CORS）を受けず、localhostや社内検証用APIにも直接リクエストが届きます。
+            </p>
+          </div>
+          <div class="feature-item">
+            <h4>環境と変数の切り替え</h4>
+            <p>
+              ローカル、検証、本番などの環境ごとに接続先URL、ポート番号、変数を管理。リクエスト内の<code>${変数名}</code>を自動展開します。
+            </p>
+          </div>
+          <div class="feature-item">
+            <h4>自動アサーション</h4>
+            <p>
+              ステータスコード、レスポンスヘッダー、本文テキスト、JSONパス、応答時間に対する検証ルールを設定し、送信時に合否を判定します。
+            </p>
+          </div>
+          <div class="feature-item">
+            <h4>一括実行とエビデンス出力</h4>
+            <p>
+              選択したリクエストを順次実行し、結果をHTMLレポート（印刷・保存用）やExcelファイル（.xlsx）として出力できます。
+            </p>
+          </div>
+          <div class="feature-item">
+            <h4>ローカル完結のデータ保持</h4>
+            <p>
+              アカウント登録は不要です。設定、履歴、エビデンス、認証情報はすべて利用中のブラウザ内（Storage）にのみ保存されます。
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 基本操作 -->
+      <section id="guide">
+        <h2>基本操作</h2>
+
+        <div class="step-box">
+          <div class="step-header">1. システムと環境の設定</div>
+          <p>
+            拡張機能アイコンをクリックして画面を開き、サイドバーの「＋
+            システムを追加」から対象システムを作成します。環境（ローカル、ステージングなど）に応じたベースURL（例:
+            <code>https://api.example.com</code>）や環境変数を登録します。
+          </p>
+        </div>
+
+        <div class="step-box">
+          <div class="step-header">2. リクエストの作成と送信</div>
+          <p>
+            「＋ リクエストを作成」からHTTPメソッドとパスを入力します。URLに
+            <code>/users/${id}</code>
+            のように記載するとパスパラメータ欄が自動で生成されます。ヘッダー、クエリパラメータ、ボディ、認証情報（Bearer
+            / Basic）を設定して「送信」を押します。
+          </p>
+        </div>
+
+        <div class="step-box">
+          <div class="step-header">3. アサーション（検証条件）の追加</div>
+          <p>
+            「アサーション」タブで検証条件を設定しておくと、送信時に合否が判定されます。
+          </p>
+          <ul>
+            <li>ステータスコードが 200 に等しい</li>
+            <li>JSONパス <code>data.status</code> が success に等しい</li>
+            <li>応答時間が 500ms より小さい</li>
+          </ul>
+        </div>
+
+        <div class="step-box">
+          <div class="step-header">4. 一括実行とレポート出力</div>
+          <p>
+            サイドメニューで実行したいリクエストにチェックを入れ、「選択した○件を実行」を押すと順番にリクエストが送信されます。終了後、「HTMLで開く」で印刷・保管用レポートを別タブ表示するか、「Excel出力」でファイルとして保存できます。
+          </p>
+        </div>
+      </section>
+
+      <!-- よくある質問 -->
+      <section id="faq">
+        <h2>よくある質問</h2>
+
+        <div class="faq-block">
+          <div class="faq-q">Q. アカウント登録やログインは必要ですか？</div>
+          <div class="faq-a">
+            不要です。インストール後、ブラウザ上でそのまま利用できます。
+          </div>
+        </div>
+
+        <div class="faq-block">
+          <div class="faq-q">
+            Q. 入力した認証情報やデータは外部サーバーに送信されますか？
+          </div>
+          <div class="faq-a">
+            送信されません。リクエスト内容、環境変数、トークン、テスト結果はすべて利用中のPCのブラウザ内（Chrome
+            Storage）にのみ保存されます。通信は利用者が指定したAPI送信先に対してのみ行われます。
+          </div>
+        </div>
+
+        <div class="faq-block">
+          <div class="faq-q">
+            Q. localhost や社内ネットワークのAPIもテストできますか？
+          </div>
+          <div class="faq-a">
+            テストできます。拡張機能の権限で通信を行うため、ブラウザのCORS（クロスオリジン）エラーが発生せず、ローカル開発サーバーや社内APIも直接送信可能です。
+          </div>
+        </div>
+
+        <div class="faq-block">
+          <div class="faq-q">
+            Q. エビデンス出力時にトークンなどの機密情報は隠せますか？
+          </div>
+          <div class="faq-a">
+            HTMLレポートおよびExcel出力では、Authorizationヘッダーなどの認証情報値は自動的に伏せ字（マスク）されます。ただし、リクエスト本文やURLに含まれる機密情報はそのまま出力されるため、外部共有前に内容をご確認ください。
+          </div>
+        </div>
+
+        <div class="faq-block">
+          <div class="faq-q">
+            Q. 設定のバックアップや他環境への移行はできますか？
+          </div>
+          <div class="faq-a">
+            サイドバーのメニューから、システム設定一式をJSONファイルとしてエクスポート・インポートできます。
+          </div>
+        </div>
+      </section>
+
+      <!-- サポート & お問い合わせ -->
+      <section id="support">
+        <h2>サポート窓口</h2>
+        <div class="info-box">
+          <p><strong>EviREST 運営プロジェクト</strong></p>
+          <p>
+            不具合の報告、機能改善のご要望、その他のお問い合わせは下記メールアドレスまでご連絡ください。
+          </p>
+          <p>
+            連絡先メールアドレス:
+            <a href="mailto:evi-rest@shiftonton.net">evi-rest@shiftonton.net</a>
+          </p>
+          <p>
+            GitHub Issues:
+            <a
+              href="https://github.com/conte0745/evirest/issues"
+              target="_blank"
+              >github.com/conte0745/evirest/issues</a
+            >
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        <p>
+          &copy; 2026 EviREST Project. Released under the
+          <a href="https://opensource.org/licenses/MIT">MIT License</a>.
+        </p>
+        <p>
+          <a href="privacy-policy.html">プライバシーポリシー</a> |
+          <a href="https://chromewebstore.google.com/detail/evirest-api-tester/edocmaemplpnhjpfnoenibkoopfndgaa">Chrome ウェブストア</a> |
+          <a href="mailto:evi-rest@shiftonton.net">お問い合わせ</a>
+        </p>
+      </footer>
+    </div>
+  </body>
+</html>
